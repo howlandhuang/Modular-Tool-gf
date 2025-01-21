@@ -1,0 +1,10 @@
+.vscode/
+dist/
+logs/
+ref/
+func/__pycache__/
+dev/
+*.txt
+temp.py
+demo.py
+debug.py
