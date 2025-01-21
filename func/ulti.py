@@ -21,7 +21,7 @@ def lr(new_x: list, new_y: list):
     return slope, intercept, R_square
 
 def split_string(input_string: str):
-    pattern = r'(.+)_(W#\w+)_(Bias\d+)\.xlsx$'
+    pattern = r'(.+)_(W#\w+)_(Bias\d+)'
     match = re.match(pattern, input_string)
     if not match:
         raise ValueError("The input string format does not match the expected pattern.")

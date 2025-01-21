@@ -52,7 +52,7 @@ class PlotProcessor:
         plt.title(title)
         plt.legend()
 
-    def run_by_site(self, plot_type_list, save_name):
+    def run_by_site(self, plot_type_list, save_name):   
         dataframes, freq, die_num = self.init_chck()
 
         for plot_type in plot_type_list:
@@ -87,3 +87,25 @@ class PlotProcessor:
 
         if self.config.debug_flag:
             plt.show()
+
+    def save_filtered_result(self):
+        for file_path in self.config.base_path:
+            df = pd.read_excel(file_path)
+
+            header = df.iloc[:self.basic_info_line_num]  # Preserve the first few lines
+            data = df.iloc[self.basic_info_line_num:]   # Data to modify
+            data = remove_outliers(data, self.config.filter_threshold, self.config.filter_tolerance)
+            modified_df = pd.concat([header, data], ignore_index=True)
+            device_info = os.path.basename(file_path)
+            device_name, wafer_id, bias_id = split_string(device_info)
+            output_file = os.path.join(self.config.output_path, f'{os.path.basename(file_path[:-5])}_filtered_threshold{self.config.filter_threshold}_tolerance{self.config.filter_tolerance}.xlsx')
+
+            with pd.ExcelWriter(output_file, engine='xlsxwriter') as writer:
+                modified_df.to_excel(writer, sheet_name=bias_id, index=False, header=True)
+                workbook = writer.book
+                worksheet = writer.sheets[bias_id]
+                header_format = workbook.add_format({'bold': False, 'border': 0})
+                for col_num, value in enumerate(modified_df.columns):
+                    worksheet.write(0, col_num, value, header_format)
+                for col_num in range(modified_df.shape[1]):
+                    worksheet.set_column(col_num + 1, col_num + 1, 12)  # Adding 1 to skip index column

@@ -49,7 +49,6 @@ class ExcelTools(QtWidgets.QWidget):
         self.input_files_listview.setModel(self.model)
         self.output_path_text.setReadOnly(True)
 
-        """Setup signal-slot connections"""
         self.input_selection_btn.setEnabled(False)
         self.output_selection_btn.setEnabled(False)
 
@@ -61,7 +60,7 @@ class ExcelTools(QtWidgets.QWidget):
         self.execute_stack_btn.clicked.connect(self.execute_stack)
         self.by_site_btn.clicked.connect(self.execute_plot_by_site)
         self.med_only_btn.clicked.connect(self.execute_plot_med_only)
-        self.save_filtered_btn.clicked.connetc(self.save_filtered_result)
+        self.save_filtered_btn.clicked.connect(self.save_filtered_result)
 
     def reset_button_connection(self, btn):
         try:
@@ -202,7 +201,7 @@ class ExcelTools(QtWidgets.QWidget):
         selected_files, _ = QFileDialog.getOpenFileNames(
             self,
             "Select .xlsx File(s)",
-            r"C:\Users\hhuang10\Documents\GUI_Develop\test_data",
+            r"C:\Users\hhuang10\Documents\test_data\results",
             "Excel Files (*.xlsx)",
         )
         if selected_files:
@@ -214,7 +213,7 @@ class ExcelTools(QtWidgets.QWidget):
         selected_folder = QFileDialog.getExistingDirectory(
             self,
             "Select Output Directory",
-            r"C:\Users\hhuang10\Documents\GUI_Develop\test_data\results",
+            r"C:\Users\hhuang10\Documents\test_data",
             QFileDialog.Option.ShowDirsOnly
         )
         if selected_folder:
@@ -374,7 +373,14 @@ class ExcelTools(QtWidgets.QWidget):
             QMessageBox.critical(self, "Error", f"An error occurred when plot median only: {str(e)}")
 
     def save_filtered_result(self):
-        pass
+        # If no input/output folder selected, return early
+        if not self.check_input_output():
+            return
+        try:
+            self.plot_processor.save_filtered_result()
+
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"An error occurred when saving filtered result: {str(e)}")
 
     def closeEvent(self, event):
         """Handle window close event (X button click)"""
