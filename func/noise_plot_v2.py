@@ -7,12 +7,13 @@ import numpy as np
 class PlotProcessor:
     def __init__(self, config: ProcessingConfig):
         self.config = config
-        self.basic_info_line_num = 5
+        self.basic_info_line_num = 5 # This is the line number where the frequency table starts
 
 
     def pre_process_df(self, single_file):
         df = pd.read_excel(single_file)
         df = df.iloc[self.basic_info_line_num:].reset_index(drop=True)
+        # Check if we need to remove outliers
         if self.config.filter_outliers_flag:
             df = remove_outliers(df, self.config.filter_threshold, self.config.filter_tolerance)
         device_info = os.path.basename(single_file)
@@ -21,6 +22,7 @@ class PlotProcessor:
         return df, device_name, wafer_id, bias_id
 
     def check_df_columns(self, df):
+        '''Check if the number of columns in the dataframe is correct'''
         pattern = r"^Die\d+_Sid$"
         num_dies = sum(bool(re.match(pattern, col)) for col in df.columns)
         if int((num_dies+1)*4+1) != df.shape[1]:
@@ -52,7 +54,7 @@ class PlotProcessor:
         plt.title(title)
         plt.legend()
 
-    def run_by_site(self, plot_type_list, save_name):   
+    def run_by_site(self, plot_type_list, save_name):
         dataframes, freq, die_num = self.init_chck()
 
         for plot_type in plot_type_list:

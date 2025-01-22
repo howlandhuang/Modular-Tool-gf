@@ -252,6 +252,11 @@ class DataProcessor:
                     predict_y_result = np.power(10, slope * np.log10(FoI) + intercept)
                     prediction_data[sheet_name][f'Freq={FoI}']['Raw'][f'Die{idx}']= bias_table[np.searchsorted(frequency_range_list, FoI)][idx]
                     prediction_data[sheet_name][f'Freq={FoI}']['Predict'][f'Die{idx}']= predict_y_result
+                    prediction_data[sheet_name]['Parameters']['Id (A)'][f'Die{idx}'] = p1.iloc[0,idx]
+                    prediction_data[sheet_name]['Parameters']['gm (S)'][f'Die{idx}'] = p1.iloc[1,idx]
+                    prediction_data[sheet_name]['Parameters']['Vd (V)'][f'Die{idx}'] = p1.iloc[2,idx]
+                    prediction_data[sheet_name]['Parameters']['Vg (V)'][f'Die{idx}'] = p1.iloc[3,idx]
+        
         return prediction_data
 
     def prediction_export(self, output_file, prediction_data):
@@ -261,11 +266,17 @@ class DataProcessor:
             types = []
 
             for sheet in prediction_data.keys():
-                for freq in prediction_data[sheet].keys():
-                    freq_num = freq.split('=')[1]
-                    sheet_names.extend([sheet, sheet])
-                    freqs.extend([freq_num, freq_num])
-                    types.extend(['Raw', 'Prediction'])
+                for freq in sorted(prediction_data[sheet].keys()):
+                    if 'Freq' in freq:
+                        freq_num = freq.split('=')[1]
+                        sheet_names.extend([sheet, sheet])
+                        freqs.extend([freq_num, freq_num])
+                        types.extend(['Raw', 'Prediction'])
+                    else:
+                        sheet_names.extend([sheet] * 4)
+                        freqs.extend(['Parameters'] * 4)
+                        types.extend(['Id (A)', 'gm (S)', 'Vd (V)', 'Vg (V)'])
+
 
             columns = pd.MultiIndex.from_arrays(
                 [sheet_names, freqs, types],
@@ -276,11 +287,16 @@ class DataProcessor:
             # Create empty DataFrame with proper structure
             df = pd.DataFrame(index=index, columns=columns)
             for sheet in prediction_data.keys():
-                for freq in prediction_data[sheet].keys():
-                    freq_num = freq.split('=')[1]
-                    for die in prediction_data[sheet][freq]['Raw'].keys():
-                        df.loc[die, (sheet, freq_num, 'Raw')] = prediction_data[sheet][freq]['Raw'][die]
-                        df.loc[die, (sheet, freq_num, 'Prediction')] = prediction_data[sheet][freq]['Predict'][die]
+                for freq in sorted(prediction_data[sheet].keys()):
+                    if 'Freq' in freq:
+                        freq_num = freq.split('=')[1]
+                        for die in prediction_data[sheet][freq]['Raw'].keys():
+                            df.loc[die, (sheet, freq_num, 'Raw')] = prediction_data[sheet][freq]['Raw'][die]
+                            df.loc[die, (sheet, freq_num, 'Prediction')] = prediction_data[sheet][freq]['Predict'][die]
+                            df.loc[die, (sheet, 'Parameters', 'Id (A)')] = prediction_data[sheet]['Parameters']['Id (A)'][die]
+                            df.loc[die, (sheet, 'Parameters', 'gm (S)')] = prediction_data[sheet]['Parameters']['gm (S)'][die]
+                            df.loc[die, (sheet, 'Parameters', 'Vd (V)')] = prediction_data[sheet]['Parameters']['Vd (V)'][die]
+                            df.loc[die, (sheet, 'Parameters', 'Vg (V)')] = prediction_data[sheet]['Parameters']['Vg (V)'][die]
 
             # Write to Excel
             with pd.ExcelWriter(output_file, engine='xlsxwriter') as writer:

@@ -21,7 +21,7 @@ class MainWindow(QWidget):
     def load_ui(self):
         """Load the main UI file"""
         try:
-            ui_path = Path('UI') / 'mainwindow.ui'
+            ui_path = Path(__file__).parent /'UI' / 'mainwindow.ui'
             if not ui_path.exists():
                 self.logger.error(f"UI file not found: {ui_path}")
                 raise FileNotFoundError(f"UI file not found: {ui_path}")
