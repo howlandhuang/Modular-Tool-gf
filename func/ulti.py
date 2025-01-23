@@ -1,7 +1,6 @@
-from dataclasses import dataclass
+import re, os, logging
 import numpy as np
-import re, os
-import logging
+from dataclasses import dataclass
 from logging.handlers import QueueHandler, QueueListener
 from queue import Queue
 
@@ -42,7 +41,7 @@ def remove_outliers(df, threshold: float, tolerance: float):
             type_cols = [col for col in noise_columns if col.endswith(f"_{condition}")]
             if not type_cols:
                 continue
-            
+
             median_col = condition + "_med"
 
             high_mask = df_copy[type_cols].gt(df_copy[median_col].values[:, None] * np.float_power(10, tolerance))

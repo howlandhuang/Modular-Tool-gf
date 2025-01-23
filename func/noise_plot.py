@@ -2,7 +2,6 @@ import os, re
 import pandas as pd
 import matplotlib.pyplot as plt
 from func.ulti import split_string, ProcessingConfig, remove_outliers
-import numpy as np
 
 class PlotProcessor:
     def __init__(self, config: ProcessingConfig):

@@ -1,10 +1,10 @@
-# main.py
-import sys, logging, time
-from pathlib import Path
 from PyQt6.QtWidgets import QApplication, QWidget, QMessageBox
 from PyQt6 import uic
+import sys, logging, time
+from pathlib import Path
 from func.excel_tools import ExcelTools
 from func.ulti import setup_logger
+
 sys.argv += ['-platform', 'windows:darkmode=1']
 
 

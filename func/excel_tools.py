@@ -1,15 +1,14 @@
 from PyQt6 import QtWidgets, uic
 from PyQt6.QtWidgets import QFileDialog, QMessageBox, QTableWidgetItem, QInputDialog
 from PyQt6.QtCore import QStringListModel
-import pandas as pd
+import os, logging
 from pathlib import Path
-from func import noise_plot_v2 as noise_plot
-from func import stacked_table
-from func import extract_noise_v3 as extract_noise
-from func import ulti
-import os
-import logging
 from multiprocessing import freeze_support
+from func import noise_plot
+from func import stacked_table
+from func import extract_noise
+from func import ulti
+
 logger = logging.getLogger(__name__)
 freeze_support()
 
@@ -107,83 +106,6 @@ class ExcelTools(QtWidgets.QWidget):
 
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Error switching tab:\n{str(e)}")
-
-    def open_excel_file(self):
-        """Open Excel file dialog and load worksheets"""
-        try:
-            file_path, _ = QFileDialog.getOpenFileName(
-                self,
-                "Select Excel File",
-                "",
-                "Excel Files (*.xlsx *.xls)",
-            )
-
-            if file_path:
-                # Load Excel file
-                self.current_excel = pd.ExcelFile(file_path)
-
-                # Update worksheet list
-                self.worksheet_list.clear()
-                self.worksheet_list.addItems(self.current_excel.sheet_names)
-
-                # Enable buttons
-                self.worksheet_list.setEnabled(True)
-                self.load_ws_button.setEnabled(True)
-
-
-        except Exception as e:
-            QMessageBox.critical(self, "Error", f"Error opening Excel file:\n{str(e)}")
-
-    def on_worksheet_changed(self, index):
-        """Handle worksheet selection change"""
-        if index >= 1:
-            self.load_ws_button.setEnabled(True)
-            self.display_ws_button.setEnabled(True)
-
-    def load_worksheet(self):
-        """Load selected worksheet into memory"""
-        try:
-            if self.current_excel and self.worksheet_list.currentText():
-                sheet_name = self.worksheet_list.currentText()
-                self.current_df = pd.read_excel(self.current_excel, sheet_name=sheet_name)
-                QMessageBox.information(self, "Success", f"Worksheet '{sheet_name}' loaded successfully!")
-
-                # Enable buttons
-                self.display_ws_button.setEnabled(False)
-                self.plot_button.setEnabled(False)
-                self.by_bias_button.setEnabled(True)
-                self.by_site_button.setEnabled(True)
-
-        except Exception as e:
-            QMessageBox.critical(self, "Error", f"Error loading worksheet:\n{str(e)}")
-
-    def display_worksheet(self):
-        """Display current worksheet in table widget"""
-        try:
-            if self.current_df is not None:
-                # Clear existing items
-                self.excel_table_widget.clear()
-
-                # Set table dimensions
-                rows, cols = self.current_df.shape
-                self.excel_table_widget.setRowCount(30)
-                self.excel_table_widget.setColumnCount(cols)
-
-                # Set headers
-                self.excel_table_widget.setHorizontalHeaderLabels(self.current_df.columns)
-
-                # Populate table
-                for row in range(rows):
-                    for col in range(cols):
-                        value = str(self.current_df.iloc[row, col])
-                        item = QTableWidgetItem(value)
-                        self.excel_table_widget.setItem(row, col, item)
-
-                # Adjust column widths
-                self.excel_table_widget.resizeColumnsToContents()
-
-        except Exception as e:
-            QMessageBox.critical(self, "Error", f"Error displaying worksheet:\n{str(e)}")
 
     def select_extraction_input(self):
         selected_folder = QFileDialog.getExistingDirectory(

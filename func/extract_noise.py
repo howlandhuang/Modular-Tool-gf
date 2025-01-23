@@ -1,16 +1,13 @@
-import os, concurrent, time, sys
-from concurrent.futures import ProcessPoolExecutor
+import os, concurrent, time, statistics, logging
 import pandas as pd
 import numpy as np
-from func.ulti import lr, ProcessingConfig, log_queue, remove_outliers
+from concurrent.futures import ProcessPoolExecutor
 from collections import defaultdict
-import statistics
-import logging
 from logging.handlers import QueueHandler
 from multiprocessing import freeze_support
+from func.ulti import lr, ProcessingConfig, log_queue
 
 os.environ['PYDEVD_DISABLE_FILE_VALIDATION'] = '1'
-
 logger = logging.getLogger("Extract Noise")
 queue_handler = QueueHandler(log_queue)
 logger.setLevel(logging.INFO)
