@@ -4,9 +4,10 @@ logs/
 ref/
 func/__pycache__/
 dev/
+ui/
+build/
 *.txt
 temp.py
 demo.py
 debug.py
-build/
 main.spec

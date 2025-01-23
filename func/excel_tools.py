@@ -37,7 +37,8 @@ class ExcelTools(QtWidgets.QWidget):
             debug_flag = False,
             filter_outliers_flag = False,
             filter_threshold = 0.1,
-            filter_tolerance = 1.0
+            filter_tolerance = 1.0,
+            prediction_only_flag = False
         )
         self.validator_processor = ulti.InputValidator()
         self.extract_processor = extract_noise.DataProcessor(self.uni_config)
@@ -236,6 +237,7 @@ class ExcelTools(QtWidgets.QWidget):
         try:
             logger.info("Button clicked, start extracting raw data")
             self.uni_config.debug_flag = True if self.debug_mode_box.isChecked() else False
+            self.uni_config.prediction_only_flag = True if self.prediction_only_box.isChecked() else False
             is_valid_low, err_msg_low, pred_range_lower = self.validator_processor.validate_single_number(self.range_low_edit.text())
             is_valid_high, err_msg_high, pred_range_upper = self.validator_processor.validate_single_number(self.range_high_edit.text())
             is_valid_foi, err_msg_foi, interest_freq = self.validator_processor.validate_frequency_list(self.interest_freq_edit.text())

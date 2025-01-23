@@ -256,7 +256,7 @@ class DataProcessor:
                     prediction_data[sheet_name]['Parameters']['gm (S)'][f'Die{idx}'] = p1.iloc[1,idx]
                     prediction_data[sheet_name]['Parameters']['Vd (V)'][f'Die{idx}'] = p1.iloc[2,idx]
                     prediction_data[sheet_name]['Parameters']['Vg (V)'][f'Die{idx}'] = p1.iloc[3,idx]
-        
+
         return prediction_data
 
     def prediction_export(self, output_file, prediction_data):
@@ -376,22 +376,23 @@ class DataProcessor:
 
             valid_noise_list_ori[sheet_name] = (df_part1, df_part2)
 
-        for sheet_name, (df_part1, df_part2) in valid_noise_list_ori.items():
-            for col in df_part2.columns:
-                if col not in df_part1.columns:
-                    df_part1[col] = np.nan
-            df_part1 = df_part1[df_part2.columns]
-            df_noise_list_ori = pd.concat([df_part1, df_part2], axis=0)
-            output_file = os.path.join(self.config.output_path, f"{device_name[:-4]}_W#{self.wafer_id}_{sheet_name}.xlsx")
-            with pd.ExcelWriter(output_file, engine='xlsxwriter') as writer:
-                df_noise_list_ori.to_excel(writer, sheet_name=sheet_name, index=False, header=True)
-                workbook = writer.book
-                worksheet = writer.sheets[sheet_name]
-                header_format = workbook.add_format({'bold': False, 'border': 0})
-                for col_num, value in enumerate(df_noise_list_ori.columns):
-                    worksheet.write(0, col_num, value, header_format)
-                for col_num in range(df_noise_list_ori.shape[1]):
-                    worksheet.set_column(col_num + 1, col_num + 1, 12)  # Adding 1 to skip index column
+        if not self.config.prediction_only_flag:
+            for sheet_name, (df_part1, df_part2) in valid_noise_list_ori.items():
+                for col in df_part2.columns:
+                    if col not in df_part1.columns:
+                        df_part1[col] = np.nan
+                df_part1 = df_part1[df_part2.columns]
+                df_noise_list_ori = pd.concat([df_part1, df_part2], axis=0)
+                output_file = os.path.join(self.config.output_path, f"{device_name[:-4]}_W#{self.wafer_id}_{sheet_name}.xlsx")
+                with pd.ExcelWriter(output_file, engine='xlsxwriter') as writer:
+                    df_noise_list_ori.to_excel(writer, sheet_name=sheet_name, index=False, header=True)
+                    workbook = writer.book
+                    worksheet = writer.sheets[sheet_name]
+                    header_format = workbook.add_format({'bold': False, 'border': 0})
+                    for col_num, value in enumerate(df_noise_list_ori.columns):
+                        worksheet.write(0, col_num, value, header_format)
+                    for col_num in range(df_noise_list_ori.shape[1]):
+                        worksheet.set_column(col_num + 1, col_num + 1, 12)  # Adding 1 to skip index column
 
 
         prediction_result = self.prediction(valid_noise_list_ori, self.config.pred_range_lower, self.config.pred_range_upper, self.config.interest_freq)
