@@ -30,6 +30,7 @@ class ExcelTools(QtWidgets.QWidget):
         self.uni_config = ulti.ProcessingConfig(
             base_path = None,
             output_path = None,
+            basic_info_line_num = 5, # This is the line number where the frequency table starts
             pred_range_lower = None,
             pred_range_upper = None,
             interest_freq = None,
@@ -58,8 +59,10 @@ class ExcelTools(QtWidgets.QWidget):
 
         self.extract_btn.clicked.connect(self.execute_raw_data_extraction)
         self.execute_stack_btn.clicked.connect(self.execute_stack)
-        self.by_site_btn.clicked.connect(self.execute_plot_by_site)
-        self.med_only_btn.clicked.connect(self.execute_plot_med_only)
+        self.by_site_btn.clicked.connect(self.execute_plot)
+        self.med_only_btn.clicked.connect(self.execute_plot)
+        self.min_only_btn.clicked.connect(self.execute_plot)
+        self.max_only_btn.clicked.connect(self.execute_plot)
         self.save_filtered_btn.clicked.connect(self.save_filtered_result)
 
     def reset_button_connection(self, btn):
@@ -187,48 +190,58 @@ class ExcelTools(QtWidgets.QWidget):
             QMessageBox.critical(self, "Error", f"An error occurred when stack table: {str(e)}")
 
     def execute_stack(self):
-
         if not self.uni_config.base_path or not self.uni_config.output_path:
             QMessageBox.warning(self, "No Folder Selected", "Please select both input files and output directory.")
             return
 
         try:
             if self.from_selection_box.isChecked():
-                text, _ = QInputDialog.getText(self, 'Input File Name', 'Enter the file name:')
-                is_valid, err_msg, save_name = self.validator_processor.validate_path(text)
-                if is_valid:
-                    self.stack_processor.from_selection(save_name)
-                else:
-                    QMessageBox.warning(self, "Error File Name Input", err_msg)
-                    return
+                while True:  # Loop until valid input is received
+                    text, _ = QInputDialog.getText(self, 'Input File Name', 'Enter the file name:')
+                    is_valid, err_msg, save_name = self.validator_processor.validate_path(text)
+                    if is_valid:
+                        self.stack_processor.run_stacking(save_name)
+                        break  # Exit the loop if input is valid
+                    else:
+                        QMessageBox.warning(self, "Error File Name Input", err_msg)
             print("Processing done")
 
         except Exception as e:
             QMessageBox.critical(self, "Error", f"An error occurred when stack table: {str(e)}")
 
-    def execute_plot_by_site(self):
-        # If no input/output folder selected, return early
+    def execute_plot(self, plot_median_flag):
         if not self.check_input_output():
             return
-
         try:
-            self.uni_config.debug_flag = True if self.debug_mode_box.isChecked() else False
-
             # Check if at least one plot type is selected
-            plot_type = []
+            noise_types = []
             if self.sid_box.isChecked():
-                plot_type.append('Sid')
+                noise_types.append('Sid')
             if self.sid_id2_box.isChecked():
-                plot_type.append('Sid/id^2')
+                noise_types.append('Sid/id^2')
             if self.svg_box.isChecked():
-                plot_type.append('Svg')
+                noise_types.append('Svg')
             if self.sid_f_box.isChecked():
-                plot_type.append('Sid*f')
-            if plot_type == []:
+                noise_types.append('Sid*f')
+            if noise_types == []:
                 QMessageBox.warning(self, "No Plot Type Selected", "Please select at least one plot type.")
                 return
 
-            # Validate filter threshold and tolerance
+            # Check debug mode and save file name
+            if self.debug_mode_box.isChecked():
+                self.uni_config.debug_flag = True
+                save_name = 'DEBUGGING'
+            else:
+                self.uni_config.debug_flag = False
+                while True:  # Loop until valid input is received
+                    text, _ = QInputDialog.getText(self, 'Input File Name', 'Enter the file name:')
+                    is_valid, err_msg, save_name = self.validator_processor.validate_path(text)
+                    if is_valid:
+                        break  # Exit the loop if input is valid
+                    else:
+                        QMessageBox.warning(self, "File Name Invalid, Please try another one", err_msg)
+
+            # Check filter threshold and tolerance setting
             if self.filter_outliers_box.isChecked():
                 self.uni_config.filter_outliers_flag = True
                 is_valid_threshold, err_msg_threshold, self.uni_config.filter_threshold = self.validator_processor.validate_range(self.filter_threshold_edit.text(), 0.0, 1.0)
@@ -244,57 +257,20 @@ class ExcelTools(QtWidgets.QWidget):
             else:
                 self.uni_config.filter_outliers_flag = False
 
-            # Check debug mode and save file name
-            if self.debug_mode_box.isChecked():
-                self.plot_processor.run_by_site(plot_type, 'DEBUGGING')
+            sender = self.sender()
+            if sender == self.by_site_btn:
+                self.plot_processor.run_plots(noise_types, 0, save_name)
+            elif sender == self.med_only_btn:
+                self.plot_processor.run_plots(noise_types, 1, save_name)
+            elif sender == self.min_only_btn:
+                self.plot_processor.run_plots(noise_types, 2, save_name)
+            elif sender == self.max_only_btn:
+                self.plot_processor.run_plots(noise_types, 3, save_name)
             else:
-                text, _ = QInputDialog.getText(self, 'Input File Name', 'Enter the file name:')
-                is_valid, err_msg, save_name = self.validator_processor.validate_path(text)
-                if is_valid:
-                    self.plot_processor.run_by_site(plot_type, save_name)
-                else:
-                    QMessageBox.warning(self, "Error File Name Input", err_msg)
-                    return
+                raise ValueError("Invalid button clicked") # This should never happen
 
         except Exception as e:
             QMessageBox.critical(self, "Error", f"An error occurred when plot by site: {str(e)}")
-
-    def execute_plot_med_only(self):
-        # If no input/output folder selected, return early
-        if not self.check_input_output():
-            return
-
-        try:
-            self.uni_config.debug_flag = True if self.debug_mode_box.isChecked() else False
-
-            # Check if at least one plot type is selected
-            plot_type = []
-            if self.sid_box.isChecked():
-                plot_type.append('Sid')
-            if self.sid_id2_box.isChecked():
-                plot_type.append('Sid/id^2')
-            if self.svg_box.isChecked():
-                plot_type.append('Svg')
-            if self.sid_f_box.isChecked():
-                plot_type.append('Sid*f')
-            if plot_type == []:
-                QMessageBox.warning(self, "No Plot Type Selected", "Please select at least one plot type.")
-                return
-
-            # Check debug mode and save file name
-            if self.debug_mode_box.isChecked():
-                self.plot_processor.run_med_only(plot_type, 'DEBUGGING')
-            else:
-                text, _ = QInputDialog.getText(self, 'Input File Name', 'Enter the file name:')
-                is_valid, err_msg, save_name = self.validator_processor.validate_path(text)
-                if is_valid:
-                    self.plot_processor.run_med_only(plot_type, save_name)
-                else:
-                    QMessageBox.warning(self, "No File Name Input", err_msg)
-                    return
-
-        except Exception as e:
-            QMessageBox.critical(self, "Error", f"An error occurred when plot median only: {str(e)}")
 
     def save_filtered_result(self):
         # If no input/output folder selected, return early

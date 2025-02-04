@@ -359,16 +359,32 @@ class DataProcessor:
 
             for row in p2:
                 sid_med = statistics.median(row[1:])
+                sid_min = min(row[1:])
+                sid_max = max(row[1:])
                 id2 = [self.get_normalised(x, y) for x,y in zip(row[1:], part1[0][1:])]
                 id2_med = statistics.median(id2)
+                id2_min = min(id2)
+                id2_max = max(id2)
                 gm2 = [self.get_normalised(x, y) for x,y in zip(row[1:], part1[1][1:])]
                 gm2_med = statistics.median(gm2)
+                gm2_min = min(gm2)
+                gm2_max = max(gm2)
                 f = [x*row[0] for x in row[1:]]
                 f_med = statistics.median(f)
+                f_min = min(f)
+                f_max = max(f)
                 row.extend(id2+gm2+f)
-                row.extend([sid_med, id2_med, gm2_med, f_med])
+                row.extend([sid_med, sid_min, sid_max,
+                            id2_med, id2_min, id2_max,
+                            gm2_med, gm2_min, gm2_max,
+                            f_med, f_min, f_max])
 
-            part2_header = part1_header + [f"{col}_Sid/id^2" for col in die_prefix] + [f"{col}_Svg" for col in die_prefix] + [f"{col}_Sid*f" for col in die_prefix] + ['Sid_med', 'Sid/id^2_med', 'Svg_med', 'Sid*f_med']
+            part2_header = part1_header + \
+                            [f"{col}_Sid/id^2" for col in die_prefix] + [f"{col}_Svg" for col in die_prefix] + [f"{col}_Sid*f" for col in die_prefix] + \
+                            ['Sid_med', 'Sid_min', 'Sid_max',
+                             'Sid/id^2_med', 'Sid/id^2_min', 'Sid/id^2_max',
+                             'Svg_med', 'Svg_min', 'Svg_max',
+                             'Sid*f_med', 'Sid*f_min', 'Sid*f_max']
             df_part2 = pd.DataFrame(p2, columns=part2_header)
 
             valid_noise_list_ori[sheet_name] = (df_part1, df_part2)

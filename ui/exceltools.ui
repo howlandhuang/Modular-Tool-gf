@@ -93,7 +93,7 @@
       <string notr="true">background-color: rgb(141, 211, 211);</string>
      </property>
      <property name="currentIndex">
-      <number>0</number>
+      <number>3</number>
      </property>
      <widget class="QWidget" name="page"/>
      <widget class="QWidget" name="page_2">
@@ -351,7 +351,7 @@
         <rect>
          <x>90</x>
          <y>170</y>
-         <width>81</width>
+         <width>51</width>
          <height>23</height>
         </rect>
        </property>
@@ -359,7 +359,7 @@
         <string notr="true">background-color: rgb(255, 116, 118);</string>
        </property>
        <property name="text">
-        <string>Plot median</string>
+        <string>Median</string>
        </property>
       </widget>
       <widget class="QCheckBox" name="svg_box">
@@ -494,6 +494,38 @@
        </property>
        <property name="dragEnabled">
         <bool>false</bool>
+       </property>
+      </widget>
+      <widget class="QPushButton" name="min_only_btn">
+       <property name="geometry">
+        <rect>
+         <x>150</x>
+         <y>170</y>
+         <width>51</width>
+         <height>23</height>
+        </rect>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">background-color: rgb(255, 116, 118);</string>
+       </property>
+       <property name="text">
+        <string>Min</string>
+       </property>
+      </widget>
+      <widget class="QPushButton" name="max_only_btn">
+       <property name="geometry">
+        <rect>
+         <x>210</x>
+         <y>170</y>
+         <width>51</width>
+         <height>23</height>
+        </rect>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">background-color: rgb(255, 116, 118);</string>
+       </property>
+       <property name="text">
+        <string>Max</string>
        </property>
       </widget>
      </widget>

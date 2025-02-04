@@ -19,7 +19,7 @@ def lr(new_x: list, new_y: list):
     R_square = 1 - (SS_res / SS_tot)
     return slope, intercept, R_square
 
-def split_string(input_string: str):
+def split_wafer_file_name(input_string: str):
     pattern = r'(.+)_(W#\w+)_(Bias\d+)'
     match = re.match(pattern, input_string)
     if not match:
@@ -57,12 +57,19 @@ def remove_outliers(df, threshold: float, tolerance: float):
             if not cols_to_recover.empty:
                 df_copy[cols_to_recover] = df[cols_to_recover]
 
+            # Update min and max columns
+            min_col = condition + "_min"
+            max_col = condition + "_max"
+            df_copy[min_col] = df_copy[type_cols].min(axis=1)
+            df_copy[max_col] = df_copy[type_cols].max(axis=1)
+
         return df_copy
 
 @dataclass
 class ProcessingConfig:
     base_path: list
     output_path: str
+    basic_info_line_num: int
     pred_range_lower: int
     pred_range_upper: int
     interest_freq: list

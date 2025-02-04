@@ -1,65 +1,67 @@
 import os, re
 import numpy as np
 import pandas as pd
-from func.ulti import split_string, ProcessingConfig
+from func.ulti import ProcessingConfig, split_wafer_file_name
 
 class StackProcessor:
     def __init__(self, config: ProcessingConfig):
         self.config = config
-        self.basic_info_line_num = 5
         self.type_of_noise = 4
 
-    def pre_process_df(self, single_file):
+    def run_stacking(self, save_file):
+        self.dataframes = []
+        self.freq = None
+        self.die_num = None
+        if not self.init_process():
+            raise ValueError("Failed to pass initial check") # Would never reach here
+
+        self._stacking_files(save_file)
+
+    def init_process(self):
+        for file_path in self.config.base_path:
+            self.get_dataframes(file_path)
+
+        self.check_column_match()
+        return True
+
+    def get_dataframes(self, single_file):
         df = pd.read_excel(single_file)
+        device_name, wafer_id, bias_id = split_wafer_file_name(os.path.basename(single_file))
+        self.dataframes.append((device_name, wafer_id, bias_id, df))
 
-        device_info = os.path.basename(single_file)
-        device_name, wafer_id, bias_id = split_string(device_info)
+    def check_column_match(self):
+        shape = None
+        for device_name, wafer_id, bias_id, df in self.dataframes:
 
-        return df, device_name, wafer_id, bias_id
-
-    def check_df_columns(self, df):
-        pattern = r"^Die\d+_Sid$"
-        num_dies = sum(bool(re.match(pattern, col)) for col in df.columns)
-        if int((num_dies + 1) * self.type_of_noise + 1) != df.shape[1]:
-            raise ValueError("Check dataframe: noise columns mismatch")
-        return num_dies
-
-    def init_chck(self, file_paths):
-
-        dataframes = []
-        die_num = None
-
-        for file_path in file_paths:
-            df, device_name, wafer_id, bias_id = self.pre_process_df(file_path)
-            if die_num is None:
-                die_num = self.check_df_columns(df)
-            elif die_num != self.check_df_columns(df):
+            # Check column number
+            # We don't need to check frequency because we only stack them vertically
+            if shape is None:
+                shape = df.shape[1]
+            elif df.shape[1] != shape:
                 raise ValueError("All files must have the same number of columns.")
 
-            dataframes.append((device_name, wafer_id, bias_id, df))
-        return dataframes, die_num
 
-    def from_selection(self, save_file):
-        dataframes, die_num = self.init_chck(self.config.base_path)
+
+    def _stacking_files(self, save_file):
         part1 = None
         part2 = None
 
-        for device_name, wafer_id, bias_id, df in dataframes:
+        for device_name, wafer_id, bias_id, df in self.dataframes:
             df.insert(0,'Wafer', [f"{wafer_id}"] * df.shape[0])
             df.insert(0,'Device', [f"{device_name}"] * df.shape[0])
             columns_to_remove = ['Wafer', 'Device']
-            df.loc[self.basic_info_line_num-1, columns_to_remove] = np.nan
+            df.loc[self.config.basic_info_line_num-1, columns_to_remove] = np.nan
 
             if part1 is None:
-                part1 = df.iloc[:self.basic_info_line_num]
+                part1 = df.iloc[:self.config.basic_info_line_num]
             else:
-                part1 = pd.concat([part1, df.iloc[:self.basic_info_line_num]])
+                part1 = pd.concat([part1, df.iloc[:self.config.basic_info_line_num]])
 
             if part2 is None:
-                part2 = df.iloc[self.basic_info_line_num:]
+                part2 = df.iloc[self.config.basic_info_line_num:]
                 blank_row = pd.DataFrame('', columns=df.columns, index=[0])
             else:
-                part2 = pd.concat([part2, blank_row, df.iloc[self.basic_info_line_num+1:]])
+                part2 = pd.concat([part2, blank_row, df.iloc[self.config.basic_info_line_num+1:]])
             result = pd.concat([part1, part2])
 
         # output_file = os.path.join(self.config.output_path, f"Stacked_tabel.xlsx")
@@ -74,5 +76,3 @@ class StackProcessor:
             for col_num in range(result.shape[1]):
                 worksheet.set_column(col_num + 1, col_num + 1, 13)  # Adding 1 to skip index colum
 
-    def start_from_extract(self):
-        pass

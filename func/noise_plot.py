@@ -1,51 +1,71 @@
 import os, re
 import pandas as pd
 import matplotlib.pyplot as plt
-from func.ulti import split_string, ProcessingConfig, remove_outliers
+from func.ulti import split_wafer_file_name, ProcessingConfig, remove_outliers
 
 class PlotProcessor:
     def __init__(self, config: ProcessingConfig):
         self.config = config
-        self.basic_info_line_num = 5 # This is the line number where the frequency table starts
 
+    def run_plots(self, noise_type_list, fig_type, save_name):
+        '''
+        noise_type_list: list of plot types to plot
+        - ['Sid', 'Sid/id^2', 'Svg', 'Sid*f']
 
-    def pre_process_df(self, single_file):
+        fig_type:
+        - 0: plot by site
+        - 1: plot median only
+        - 2: plot max only
+        - 3: plot min only
+
+        '''
+        self.dataframes = []
+        self.freq = None
+        self.die_num = None
+        if not self.init_process(noise_type_list, fig_type):
+            raise ValueError("Failed to pass initial check") # Would never reach here
+
+        for noise_type in noise_type_list:
+            self._plot_data(noise_type, fig_type, save_name)
+
+    def init_process(self, noise_type_list, fig_type):
+        for file_path in self.config.base_path:
+            self.get_dataframes(file_path)
+
+        for noise_type in noise_type_list:
+            self.check_column_match(noise_type, fig_type)
+
+        return True
+
+    def get_dataframes(self, single_file):
         df = pd.read_excel(single_file)
-        df = df.iloc[self.basic_info_line_num:].reset_index(drop=True)
-        # Check if we need to remove outliers
+        df = df.iloc[self.config.basic_info_line_num:].reset_index(drop=True)
+        device_name, wafer_id, bias_id = split_wafer_file_name(os.path.basename(single_file))
         if self.config.filter_outliers_flag:
             df = remove_outliers(df, self.config.filter_threshold, self.config.filter_tolerance)
-        device_info = os.path.basename(single_file)
-        device_name, wafer_id, bias_id = split_string(device_info)
+        self.dataframes.append((device_name, wafer_id, bias_id, df))
 
-        return df, device_name, wafer_id, bias_id
-
-    def check_df_columns(self, df):
-        '''Check if the number of columns in the dataframe is correct'''
-        pattern = r"^Die\d+_Sid$"
-        num_dies = sum(bool(re.match(pattern, col)) for col in df.columns)
-        if int((num_dies+1)*4+1) != df.shape[1]:
-            raise ValueError("Check dataframe: noise columns mismatch")
-        return num_dies
-
-    def init_chck(self):
-        dataframes = []
-        freq = None
-        die_num = None
-        for file_path in self.config.base_path:
-            df, device_name, wafer_id, bias_id = self.pre_process_df(file_path)
-            if die_num is None:
-                die_num = self.check_df_columns(df)
-            elif die_num != self.check_df_columns(df):
-                raise ValueError("All files must have the same number of columns.")
-            if freq is None:
-                freq = df["Frequency"]
-            elif (freq != df["Frequency"]).any():
+    def check_column_match(self, noise_type, fig_type):
+        shape = None
+        for device_name, wafer_id, bias_id, df in self.dataframes:
+            # Check frequency
+            
+            if self.freq is None:
+                self.freq = df["Frequency"]
+            elif (df["Frequency"] != self.freq).any():
                 raise ValueError("All files must have the same frequency range.")
-            dataframes.append((device_name, wafer_id, bias_id, df))
-        return dataframes, freq, die_num
 
-    def figure_format(self, title):
+            # Check column number
+            current_columns = len([col for col in df.columns if col.endswith(f"_{noise_type}")])
+            self.die_num= current_columns
+            current_columns += (3 if fig_type in {2, 3} else 1)
+            if shape is None:
+                shape = current_columns
+            elif current_columns != shape:
+                raise ValueError("All files must have the same number of columns.")
+
+    def figure_format(self, plt, title):
+        # Apply formatting
         plt.xscale('log')
         plt.yscale('log')
         plt.grid(True)
@@ -53,52 +73,57 @@ class PlotProcessor:
         plt.title(title)
         plt.legend()
 
-    def run_by_site(self, plot_type_list, save_name):
-        dataframes, freq, die_num = self.init_chck()
+    def _plot_data(self, noise_type, fig_type, save_name):
+        # Create figure and canvas
+        plt.figure(figsize=(12, 8))
 
-        for plot_type in plot_type_list:
-            plt.figure(figsize=(12, 8))
-            colors1 = [(r, g, b, 0.2) for r, g, b, _ in plt.cm.tab10(range(10))]  # Semi-transparent
-            colors2 = [(r, g, b, 1) for r, g, b, _ in plt.cm.tab10(range(10))]  # Use Tab10 for normal
-            for idx, (device_name, wafer_id, bias_id, df) in enumerate(dataframes):
-                for die in range(die_num):
-                    plt.plot(freq, df[f"Die{die+1}_{plot_type}"], color=colors1[idx], label=f"{device_name}, {wafer_id}, {bias_id}" if die == 0 else "")
-                plt.plot(freq, df[f"{plot_type}_med"], color=colors2[idx], label=f"{device_name}, {wafer_id}, {bias_id}, median")
-            title = f"{plot_type} by site"
-            self.figure_format(title)
+        colors = plt.cm.tab10(range(10))
 
-            if not self.config.debug_flag:
-                plt.savefig(f'{self.config.output_path}/{save_name}_{title.replace("/", "_")}.png', dpi=300, bbox_inches='tight')
-                plt.close()
-        if self.config.debug_flag:
+        for idx, (device_name, wafer_id, bias_id, df) in enumerate(self.dataframes):
+            if fig_type == 0:
+                for die in range(self.die_num):
+                    plt.plot(self.freq, df[f"Die{die+1}_{noise_type}"],
+                          color=(*colors[idx][:3], 0.1), # Reduced opacity
+                          label=f"{device_name}, {wafer_id}, {bias_id}" if die == 0 else "")
+                plt.plot(self.freq, df[f"{noise_type}_med"],
+                    color=colors[idx],
+                    label=f"{device_name}, {wafer_id}, {bias_id}, median")
+            elif fig_type == 1:
+                plt.plot(self.freq, df[f"{noise_type}_med"],
+                    color=colors[idx],
+                    label=f"{device_name}, {wafer_id}, {bias_id}, median")
+            elif fig_type == 2:
+                plt.plot(self.freq, df[f"{noise_type}_min"],
+                    color=colors[idx],
+                    label=f"{device_name}, {wafer_id}, {bias_id}, min")
+            elif fig_type == 3:
+                plt.plot(self.freq, df[f"{noise_type}_max"],
+                    color=colors[idx],
+                    label=f"{device_name}, {wafer_id}, {bias_id}, max")
+            else:
+                raise ValueError("Invalid fig_type") # Would never reach here
+
+        title = f"{noise_type} {'median only' if fig_type else 'by site'}"
+        self.figure_format(plt, title)
+
+        if not self.config.debug_flag:
+            plt.savefig(f'{self.config.output_path}/{save_name}_{title.replace("/", "_")}.png',
+                      dpi=300, bbox_inches='tight')
+            plt.close()
+        elif self.config.debug_flag:
             plt.show()
 
-    def run_med_only(self, plot_type_list, save_name):
-        dataframes, freq, die_num = self.init_chck()
-        for plot_type in plot_type_list:
-            plt.figure(figsize=(12, 8))
-            colors = [plt.cm.tab10(i / 10) for i in range(10)]  # Use Tab10 for normal
-            for idx, (device_name, wafer_id, bias_id, df) in enumerate(dataframes):
-                plt.plot(freq, df[f"{plot_type}_med"], color=colors[idx], label=f"{device_name}, {wafer_id}, {bias_id}, median")
-            title = f"{plot_type} median only"
-            self.figure_format(title)
-            if not self.config.debug_flag:
-                plt.savefig(f'{self.config.output_path}/{save_name}_{title.replace("/", "_")}.png', dpi=300, bbox_inches='tight')
-                plt.close()
-
-        if self.config.debug_flag:
-            plt.show()
 
     def save_filtered_result(self):
         for file_path in self.config.base_path:
             df = pd.read_excel(file_path)
 
-            header = df.iloc[:self.basic_info_line_num]  # Preserve the first few lines
-            data = df.iloc[self.basic_info_line_num:]   # Data to modify
+            header = df.iloc[:self.config.basic_info_line_num]  # Preserve the first few lines
+            data = df.iloc[self.config.basic_info_line_num:]   # Data to modify
             data = remove_outliers(data, self.config.filter_threshold, self.config.filter_tolerance)
             modified_df = pd.concat([header, data], ignore_index=True)
             device_info = os.path.basename(file_path)
-            device_name, wafer_id, bias_id = split_string(device_info)
+            device_name, wafer_id, bias_id = split_wafer_file_name(device_info)
             output_file = os.path.join(self.config.output_path, f'{os.path.basename(file_path[:-5])}_filtered_threshold{self.config.filter_threshold}_tolerance{self.config.filter_tolerance}.xlsx')
 
             with pd.ExcelWriter(output_file, engine='xlsxwriter') as writer:
