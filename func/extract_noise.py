@@ -16,11 +16,8 @@ from func.ulti import lr, ProcessingConfig, log_queue
 # Enable PyDev debugging
 os.environ['PYDEVD_DISABLE_FILE_VALIDATION'] = '1'
 
-# Setup logging
-logger = logging.getLogger("Extract Noise")
-queue_handler = QueueHandler(log_queue)
-logger.setLevel(logging.INFO)
-logger.addHandler(queue_handler)
+# Initialize module logger - no need to add handler as it inherits from root logger
+logger = logging.getLogger(__name__)
 
 class DataProcessor:
     """
@@ -94,6 +91,7 @@ class DataProcessor:
                           if f.startswith('Die') and
                           os.path.isdir(os.path.join(self.config.base_path, f))]
         self.total_dies = len(self.die_folders)
+        logger.debug(f"Found {self.total_dies} die folders")
 
         # Get device list from first die
         first_die_path = os.path.join(self.config.base_path, self.die_folders[0])
@@ -101,6 +99,7 @@ class DataProcessor:
                         if '_Svg' not in f and
                         os.path.isfile(os.path.join(first_die_path, f))]
         self.total_devices = len(self.device_list)
+        logger.debug(f"Found {self.total_devices} devices to process")
 
     def get_data_from_raw(self, file):
         """
@@ -120,7 +119,6 @@ class DataProcessor:
         try:
             with open(file, "r") as f:
                 content = f.readlines()
-            logger.debug(f"Successfully read {len(content)} lines from file")
         except Exception as e:
             logger.error(f"Error reading data file: {str(e)}")
             raise FileNotFoundError(f"Error reading data file --> {e}")
@@ -144,7 +142,6 @@ class DataProcessor:
         # Extract header and data tables
         header = content[75].strip().split(",")
         header.append("")
-        logger.debug(f"Extracted header with {len(header)} columns")
 
         try:
             # Extract bias data
@@ -520,7 +517,6 @@ class DataProcessor:
 
                 # Skip invalid data
                 if all(data == 0 for data in p1[0][1:4]) or all(data == 0 for data in p2[0][1:]):
-                    logger.warning(f"Skipping {sheet_name} due to invalid data")
                     continue
                 if len(p2[0][1:]) != len(p1) != self.total_dies:
                     logger.error(f"Data mismatch in {sheet_name}")
@@ -649,35 +645,57 @@ class DataProcessor:
         Process all devices in parallel.
         Manages worker processes and tracks progress.
         """
+        freeze_support()
         logger.info("Starting parallel processing of all devices")
         try:
-            # Get die folders
-            self.die_folders = [f for f in os.listdir(self.config.base_path) if f.startswith('Die')]
-            self.total_dies = len(self.die_folders)
-            logger.debug(f"Found {self.total_dies} die folders")
+            self.scan_structure()
+            logger.info(f"Found {self.total_dies} dies and {self.total_devices} devices")
 
-            # Get wafer ID
-            first_die = self.die_folders[0]
-            first_file = os.listdir(os.path.join(self.config.base_path, first_die))[0]
-            _, self.wafer_id, _ = first_file.split('_')
-            logger.debug(f"Wafer ID: {self.wafer_id}")
-
-            # Get device list
-            device_list = os.listdir(os.path.join(self.config.base_path, first_die))
-            logger.debug(f"Found {len(device_list)} devices to process")
+            if not self.config.debug_flag:
+                wafer_info = self.extract_wafer_info()
+                self.wafer_id = wafer_info[0]
+                self.lot_id = wafer_info[1]
+            else:
+                self.lot_id = 'DEBUG'
+                self.wafer_id = 'DEBUG'
+            logger.debug(f"Wafer ID: {self.wafer_id}, Lot ID is: {self.lot_id}")
 
             # Process devices in parallel
             logger.info("Starting parallel device processing")
+            start_time = time.perf_counter()
+            execution_times = {}
+
             with ProcessPoolExecutor() as executor:
-                futures = [executor.submit(self.process_single_device, device) for device in device_list]
-                concurrent.futures.wait(futures)
+                # Submit all tasks and store futures with their device names
+                future_to_device = {
+                    executor.submit(self.process_single_device, device): device
+                    for device in self.device_list
+                }
 
-                # Check for errors
-                for future in futures:
-                    if future.exception():
-                        logger.error(f"Error in parallel processing: {future.exception()}")
-                        raise future.exception()
+                # Wait for completion and collect results
+                for future in concurrent.futures.as_completed(future_to_device):
+                    device = future_to_device[future]
+                    try:
+                        processing_time = float(future.result())  # Get the returned processing time
+                        execution_times[device] = processing_time
+                        logger.info(f"Device {device[:-4]} completed in {processing_time:.2f} seconds")
+                    except Exception as e:
+                        logger.error(f"Device {device[:-4]} failed with error: {str(e)}")
+                        raise
 
+            # Log execution time statistics
+            total_time = time.perf_counter() - start_time
+            avg_time = sum(execution_times.values()) / len(execution_times)
+            max_time = max(execution_times.values())
+            min_time = min(execution_times.values())
+            slowest_device = max(execution_times.items(), key=lambda x: x[1])[0]
+            fastest_device = min(execution_times.items(), key=lambda x: x[1])[0]
+
+            logger.info("Parallel processing completed")
+            logger.info(f"Total execution time: {total_time:.2f} seconds")
+            logger.info(f"Average device processing time: {avg_time:.2f} seconds")
+            logger.info(f"Fastest device: {fastest_device[:-4]} ({min_time:.2f} seconds)")
+            logger.info(f"Slowest device: {slowest_device[:-4]} ({max_time:.2f} seconds)")
             logger.info("All devices processed successfully")
             self.reset_parameters()
 
@@ -696,13 +714,10 @@ class DataProcessor:
         Returns:
             float: Normalized value
         """
-        logger.debug(f"Calculating normalized value - x: {x}, factor: {factor}")
         try:
             if factor == 0:
-                logger.warning("Normalization factor is zero, returning infinity")
                 return np.inf
             result = x / factor / factor
-            logger.debug(f"Normalized result: {result}")
             return result
         except Exception as e:
             logger.error(f"Error in normalization calculation: {str(e)}")

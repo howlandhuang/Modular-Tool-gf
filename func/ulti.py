@@ -20,6 +20,7 @@ log_queue = Queue()
 def setup_logger(log_file):
     """
     Setup logging configuration for multiprocessing.
+    File handler will record DEBUG level messages, while console shows only INFO.
 
     Args:
         log_file: Path to log file
@@ -27,26 +28,36 @@ def setup_logger(log_file):
     Returns:
         QueueListener: Configured log listener
     """
-    # Root logger setup
-    logger = logging.getLogger()
-    logger.setLevel(logging.INFO)
+    # Root logger setup - set to DEBUG to capture all levels
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.DEBUG)  # Changed to DEBUG to capture all messages
 
-    # File handler for logging to a file
+    # Clear any existing handlers
+    root_logger.handlers = []
+
+    # File handler for logging to a file - captures DEBUG and above
     file_handler = logging.FileHandler(log_file)
     file_formatter = logging.Formatter(
         "%(asctime)s - %(name)s - %(module)s - %(levelname)s - %(message)s"
     )
     file_handler.setFormatter(file_formatter)
-    file_handler.setLevel(logging.INFO)
+    file_handler.setLevel(logging.DEBUG)  # Changed to DEBUG to record all messages
 
-    # Console handler for printing logs to the console
+    # Console handler for printing logs to the console - shows only INFO and above
     console_handler = logging.StreamHandler()
     console_formatter = logging.Formatter("%(module)s - %(levelname)s: %(message)s")
     console_handler.setFormatter(console_formatter)
-    console_handler.setLevel(logging.INFO)
+    console_handler.setLevel(logging.INFO)  # Kept at INFO for console output
+
+    # Create a filter for the console handler
+    class InfoFilter(logging.Filter):
+        def filter(self, record):
+            return record.levelno >= logging.INFO
+
+    console_handler.addFilter(InfoFilter())
 
     # Queue Listener to handle logs from multiprocessing
-    listener = QueueListener(log_queue, file_handler, console_handler)
+    listener = QueueListener(log_queue, file_handler, console_handler, respect_handler_level=True)
     listener.start()
 
     # Replace handlers with QueueHandler for all processes

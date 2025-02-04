@@ -284,7 +284,11 @@ class ExcelTools(QtWidgets.QWidget):
             if self.from_selection_box.isChecked():
                 logger.debug("Using file name from user input")
                 while True:  # Loop until valid input is received
-                    text, _ = QInputDialog.getText(self, 'Input File Name', 'Enter the file name:')
+                    text, ok = QInputDialog.getText(self, 'Input File Name', 'Enter the file name:')
+                    if not ok:  # User clicked Cancel or closed the dialog
+                        logger.debug("User cancelled file name input")
+                        return  # Exit the method entirely
+
                     is_valid, err_msg, save_name = self.validator_processor.validate_path(text)
                     if is_valid:
                         logger.info(f"Starting stacking with save name: {save_name}")

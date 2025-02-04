@@ -4,7 +4,6 @@ logs/
 ref/
 func/__pycache__/
 dev/
-ui/
 build/
 *.txt
 temp.py
