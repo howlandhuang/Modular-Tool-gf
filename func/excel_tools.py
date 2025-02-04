@@ -1,3 +1,11 @@
+"""
+Excel Tools module for data processing and visualization.
+Provides a GUI interface for various Excel-related operations including:
+- Data extraction
+- Table stacking
+- Data plotting
+"""
+
 from PyQt6 import QtWidgets, uic
 from PyQt6.QtWidgets import QFileDialog, QMessageBox, QTableWidgetItem, QInputDialog
 from PyQt6.QtCore import QStringListModel
@@ -13,24 +21,37 @@ logger = logging.getLogger(__name__)
 freeze_support()
 
 class ExcelTools(QtWidgets.QWidget):
+    """
+    Main widget for Excel processing tools.
+    Provides interface for data extraction, stacking and plotting operations.
+    """
+    
     def __init__(self):
+        """Initialize the Excel Tools widget and load UI."""
         super().__init__()
+        # Load UI file
         ui_path = Path(__file__).parent.parent / 'UI' / 'exceltools.ui'
         uic.loadUi(ui_path, self)
         self.setWindowTitle("Excel Tools")
+        
+        # Initialize state variables
         self.sheets = None
         self.current_excel = None
         self.current_df = None
+        
+        # Setup UI and processors
         self.setup_connections()
         self.initialize_processors()
         self.stack_widget.setCurrentIndex(0)
         logger.info("Excel Tools Initializing Complete")
 
     def initialize_processors(self):
+        """Initialize data processing configurations and processors."""
+        # Create unified configuration
         self.uni_config = ulti.ProcessingConfig(
             base_path = None,
             output_path = None,
-            basic_info_line_num = 5, # This is the line number where the frequency table starts
+            basic_info_line_num = 5, # Line number where frequency table starts
             pred_range_lower = None,
             pred_range_upper = None,
             interest_freq = None,
@@ -40,23 +61,30 @@ class ExcelTools(QtWidgets.QWidget):
             filter_tolerance = 1.0,
             prediction_only_flag = False
         )
+        
+        # Initialize processors
         self.validator_processor = ulti.InputValidator()
         self.extract_processor = extract_noise.DataProcessor(self.uni_config)
         self.stack_processor = stacked_table.StackProcessor(self.uni_config)
         self.plot_processor = noise_plot.PlotProcessor(self.uni_config)
 
     def setup_connections(self):
+        """Setup UI element connections and initial states."""
+        # Setup list view model
         self.model = QStringListModel()
         self.input_files_listview.setModel(self.model)
         self.output_path_text.setReadOnly(True)
 
+        # Disable buttons initially
         self.input_selection_btn.setEnabled(False)
         self.output_selection_btn.setEnabled(False)
 
+        # Connect tab switching buttons
         self.data_extraction_tab_btn.clicked.connect(self.switch_data_extraction_tab)
         self.stack_table_tab_btn.clicked.connect(self.switch_stack_table_tab)
         self.plot_tab_btn.clicked.connect(self.switch_plot_tab)
 
+        # Connect action buttons
         self.extract_btn.clicked.connect(self.execute_raw_data_extraction)
         self.execute_stack_btn.clicked.connect(self.execute_stack)
         self.by_site_btn.clicked.connect(self.execute_plot)
@@ -66,6 +94,7 @@ class ExcelTools(QtWidgets.QWidget):
         self.save_filtered_btn.clicked.connect(self.save_filtered_result)
 
     def reset_button_connection(self, btn):
+        """Safely disconnect all signals from a button."""
         try:
             btn.clicked.disconnect()
         except TypeError:
@@ -148,33 +177,43 @@ class ExcelTools(QtWidgets.QWidget):
             self.output_path_text.setPlainText(self.uni_config.output_path)
 
     def check_input_output(self):
+        """
+        Validate input and output paths.
+        Returns True if valid, False otherwise.
+        """
         if not self.uni_config.base_path or (not self.debug_mode_box.isChecked() and not self.uni_config.output_path):
             QMessageBox.warning(self, "No Folder Selected", "Please select both input files and output directory.")
             return False
         return True
 
     def execute_raw_data_extraction(self):
-
+        """Execute raw data extraction process."""
+        # Validate paths
         if not self.uni_config.base_path or not self.uni_config.output_path:
             QMessageBox.warning(self, "No Folder Selected", "Please select both input files and output directory.")
             return
 
         try:
             logger.info("Button clicked, start extracting raw data")
-            self.uni_config.debug_flag = True if self.debug_mode_box.isChecked() else False
-            self.uni_config.prediction_only_flag = True if self.prediction_only_box.isChecked() else False
+            
+            # Get configuration from UI
+            self.uni_config.debug_flag = self.debug_mode_box.isChecked()
+            self.uni_config.prediction_only_flag = self.prediction_only_box.isChecked()
+            
+            # Validate input parameters
             is_valid_low, err_msg_low, pred_range_lower = self.validator_processor.validate_single_number(self.range_low_edit.text())
             is_valid_high, err_msg_high, pred_range_upper = self.validator_processor.validate_single_number(self.range_high_edit.text())
             is_valid_foi, err_msg_foi, interest_freq = self.validator_processor.validate_frequency_list(self.interest_freq_edit.text())
 
             if is_valid_low and is_valid_high and is_valid_foi:
+                # Set validated parameters
                 self.uni_config.pred_range_lower = pred_range_lower
                 self.uni_config.pred_range_upper = pred_range_upper
                 self.uni_config.interest_freq = interest_freq
                 logger.info("Parameters are valid, start processing")
                 self.extract_processor.process_all_devices()
-                # extract_noise.main(self.uni_config)
             else:
+                # Show validation errors
                 error_messages = []
                 if not is_valid_low:
                     error_messages.append(f"Prediction Lower Range: {err_msg_low}")
@@ -283,14 +322,12 @@ class ExcelTools(QtWidgets.QWidget):
             QMessageBox.critical(self, "Error", f"An error occurred when saving filtered result: {str(e)}")
 
     def closeEvent(self, event):
-        """Handle window close event (X button click)"""
+        """Handle window close event."""
         logger.info("Excel Tools is closing via X button")
-        # Hide the window first
         self.hide()
-        # Mark it for deletion when we return to event loop
         self.deleteLater()
         event.accept()
 
     def __del__(self):
-        """Destructor"""
+        """Cleanup when object is deleted."""
         logger.info("Excel Tools object is being deleted")
