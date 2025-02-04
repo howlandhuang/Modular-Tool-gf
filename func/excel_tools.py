@@ -335,7 +335,11 @@ class ExcelTools(QtWidgets.QWidget):
                 logger.debug("Getting save name from user")
                 self.uni_config.debug_flag = False
                 while True:  # Loop until valid input is received
-                    text, _ = QInputDialog.getText(self, 'Input File Name', 'Enter the file name:')
+                    text, ok = QInputDialog.getText(self, 'Input File Name', 'Enter the file name:')
+                    if not ok:  # User clicked Cancel or closed the dialog
+                        logger.debug("User cancelled file name input")
+                        return  # Exit the method entirely
+
                     is_valid, err_msg, save_name = self.validator_processor.validate_path(text)
                     if is_valid:
                         break  # Exit the loop if input is valid

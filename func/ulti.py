@@ -29,17 +29,15 @@ def setup_logger(log_file):
         QueueListener: Configured log listener
     """
     # Root logger setup - set to DEBUG to capture all levels
-    root_logger = logging.getLogger()
-    root_logger.setLevel(logging.DEBUG)  # Changed to DEBUG to capture all messages
+    logger = logging.getLogger()
+    logger.setLevel(logging.DEBUG)  # Changed to DEBUG to capture all messages
 
     # Clear any existing handlers
-    root_logger.handlers = []
+    logger.handlers = []
 
     # File handler for logging to a file - captures DEBUG and above
     file_handler = logging.FileHandler(log_file)
-    file_formatter = logging.Formatter(
-        "%(asctime)s - %(name)s - %(module)s - %(levelname)s - %(message)s"
-    )
+    file_formatter = logging.Formatter("%(asctime)s - %(name)s - %(module)s - %(levelname)s - %(message)s")
     file_handler.setFormatter(file_formatter)
     file_handler.setLevel(logging.DEBUG)  # Changed to DEBUG to record all messages
 
