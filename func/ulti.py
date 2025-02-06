@@ -247,6 +247,8 @@ class InputValidator:
         self.invalid_path_chars = r'[<>:"|?*\x00-\x1F]'
         self.single_freq_pattern = r'^\s*(\d+\.?\d*)\s*$'
         self.freq_list_pattern = r'^\s*\d+\.?\d*\s*(?:,\s*\d+\.?\d*\s*)*$'
+        self.lot_id_pattern = r'^\d[a-zA-Z]{3}\d{5}(_RT)?$'
+        self.wafer_id_pattern = r'^[wW]\d{2}$'
 
     def validate_path(self, path_str):
         """
@@ -339,42 +341,42 @@ class InputValidator:
             logger.error(f"Error validating number: {str(e)}")
             return False, f"Invalid input: {str(e)}", None
 
-    def validate_frequency_list(self, freq_str):
+    def validate_frequency_list(self, freq_list):
         """
         Validate frequency list input.
 
         Args:
-            freq_str: Comma-separated frequency list to validate
+            freq_list: Comma-separated frequency list to validate
 
         Returns:
             tuple: (is_valid, error_message, validated_list)
         """
-        logger.debug(f"Validating frequency list: {freq_str}")
+        logger.debug(f"Validating frequency list: {freq_list}")
         try:
-            if not freq_str or not freq_str.strip():
+            if not freq_list or not freq_list.strip():
                 logger.warning("Empty frequency list provided")
                 return False, "Frequency list cannot be empty", None
 
-            freq_str = freq_str.strip()
+            freq_list = freq_list.strip()
 
             # Check for double commas
-            if ',,' in freq_str:
+            if ',,' in freq_list:
                 logger.warning("Double commas found in frequency list")
                 return False, "Double commas are not allowed", None
 
             # Check if string starts or ends with comma
-            if freq_str.startswith(',') or freq_str.endswith(','):
+            if freq_list.startswith(',') or freq_list.endswith(','):
                 logger.warning("Frequency list starts or ends with comma")
                 return False, "Input cannot start or end with a comma", None
 
             # Match against pattern for strict comma separation
-            if not re.match(self.freq_list_pattern, freq_str):
-                logger.warning(f"Invalid frequency list format: {freq_str}")
+            if not re.match(self.freq_list_pattern, freq_list):
+                logger.warning(f"Invalid frequency list format: {freq_list}")
                 return False, "Invalid format. Use comma-separated numbers only", None
 
             # Split and convert to floats
             frequencies = []
-            for num in freq_str.split(','):
+            for num in freq_list.split(','):
                 try:
                     value = float(num.strip())
                     if value < 0:
@@ -428,4 +430,70 @@ class InputValidator:
             logger.error(f"Error validating range: {str(e)}")
             return False, f"Invalid input: {str(e)}", None
 
+    def validate_lot_id(self, lot_id):
+        """
+        Validate lot id input.
 
+        Args:
+            lot_id: Lot id to validate
+
+        Returns:
+            tuple: (is_valid, error_message, validated_id)
+        """
+        logger.debug(f"Validating lot id: {lot_id}")
+        try:
+            if not lot_id or not lot_id.strip():
+                logger.warning("Empty lot id provided")
+                return False, "Input cannot be empty", None
+
+            lot_id = lot_id.strip()
+
+            # Check format
+            match = re.match(self.lot_id_pattern, lot_id)
+            if not match:
+                logger.warning(f"Invalid lot id format: {lot_id}")
+                return False, "Invalid format. Please provide a correct lot id", None
+
+            logger.debug(f"lot id validation successful: {lot_id}")
+            return True, "", lot_id
+
+        except ValueError:
+            logger.warning(f"Invalid lot_id format: {lot_id}")
+            return False, "Invalid lot id format", None
+        except Exception as e:
+            logger.error(f"Error validating range: {str(e)}")
+            return False, f"Invalid input: {str(e)}", None
+
+    def validate_wafer_id(self, wafer_id):
+            """
+            Validate wafer id input.
+
+            Args:
+                wafer_id: wafer id to validate
+
+            Returns:
+                tuple: (is_valid, error_message, validated_id)
+            """
+            logger.debug(f"Validating wafer id: {wafer_id}")
+            try:
+                if not wafer_id or not wafer_id.strip():
+                    logger.warning("Empty wafer id provided")
+                    return False, "Input cannot be empty", None
+
+                wafer_id = wafer_id.strip()
+
+                # Check format
+                match = re.match(self.wafer_id_pattern, wafer_id)
+                if not match:
+                    logger.warning(f"Invalid wafer id format: {wafer_id}")
+                    return False, "Invalid format. Please provide a correct wafer id", None
+
+                logger.debug(f"wafer id validation successful: {wafer_id}")
+                return True, "", wafer_id
+
+            except ValueError:
+                logger.warning(f"Invalid wafer_id format: {wafer_id}")
+                return False, "Invalid wafer id format", None
+            except Exception as e:
+                logger.error(f"Error validating range: {str(e)}")
+                return False, f"Invalid input: {str(e)}", None

@@ -4,7 +4,7 @@ Provides functionality to extract and process noise measurement data from raw fi
 Supports parallel processing for improved performance.
 """
 
-import os, concurrent, time, statistics, logging
+import os, concurrent, time, statistics, logging, re
 import pandas as pd
 import numpy as np
 from concurrent.futures import ProcessPoolExecutor
@@ -12,6 +12,7 @@ from collections import defaultdict
 from logging.handlers import QueueHandler
 from multiprocessing import freeze_support
 from func.ulti import lr, ProcessingConfig, log_queue
+from PyQt6.QtWidgets import QInputDialog, QWidget
 
 # Enable PyDev debugging
 os.environ['PYDEVD_DISABLE_FILE_VALIDATION'] = '1'
@@ -49,7 +50,7 @@ class DataProcessor:
         self.results = {}
         logger.debug("Processing parameters reset complete")
 
-    def extract_wafer_info(self):
+    def extract_wafer_info_from_path(self):
         """
         Extract wafer and lot information from file path.
 
@@ -59,22 +60,61 @@ class DataProcessor:
         logger.debug("Starting wafer info extraction")
         try:
             parts = str(self.config.base_path).split('/')
-            assumed_wafer_id = parts[-2]
-            lot_id = None
-            logger.debug(f"Path parts: {parts}")
-            logger.debug(f"Initial assumed wafer ID: {assumed_wafer_id}")
 
             # Check if path follows expected structure
-            if parts[-5] == 'W'+assumed_wafer_id and parts[-4] == 'BSIM_W'+ assumed_wafer_id:
-                lot_id = parts[-3]
+            if parts[-4] == 'BSIM_W'+  parts[-2] or parts[-4] == 'BSIM_'+  parts[-2] :
+                wafer_id = parts[-2].replace('w', '').replace('W', '')
+                logger.info(f"Found wafer ID from path structure: {wafer_id}")
+            else:
+                logger.warning("Path structure does not match expected format")
+                # Create a temporary QWidget as parent for the dialog
+                temp_widget = QWidget()
+                while True:  # Loop until valid input is received
+                    wafer_id, ok = QInputDialog.getText(
+                    temp_widget,
+                    'Wafer ID Input',
+                    'Path structure does not match expected format.\nPlease input wafer ID:'
+                    )
+                    if not ok:  # User clicked Cancel or closed the dialog
+                        logger.debug("User cancelled wafer id input")
+                        wafer_id = 'UNKNOWN'
+                        break  # Exit the this loop
+                    is_valid, err_msg, wafer_id = self.validator_processor.validate_wafer_id(wafer_id)
+                    if is_valid:
+                        logger.info(f"User provided wafer ID: {wafer_id}")
+                        break
+                    else:
+                        logger.warning("User inputs an invalid wafer ID")
+                temp_widget.deleteLater()  # Clean up the temporary widget
+
+
+            if match := re.match(r'^\d[a-zA-Z]{3}\d{5}(_RT)?$', parts[-3]):
+                lot_id = match.group(0)
                 logger.info(f"Found lot ID from path structure: {lot_id}")
             else:
                 logger.warning("Path structure does not match expected format")
-                assumed_wafer_id = input("Please input wafer id:")
-                logger.info(f"User provided wafer ID: {assumed_wafer_id}")
+                # Create a temporary QWidget as parent for the dialog
+                temp_widget = QWidget()
+                while True:  # Loop until valid input is received
+                    lot_id, ok = QInputDialog.getText(
+                    temp_widget,
+                    'Lot ID Input',
+                    'Path structure does not match expected format.\nPlease input lot ID:'
+                    )
+                    if not ok:  # User clicked Cancel or closed the dialog
+                        logger.debug("User cancelled lot id input")
+                        lot_id = 'UNKNOWN'
+                        break  # Exit the this loop
+                    is_valid, err_msg, lot_id = self.validator_processor.validate_lot_id(lot_id)
+                    if is_valid:
+                        logger.info(f"User provided lot ID: {lot_id}")
+                        break
+                    else:
+                        logger.warning("User inputs an invalid lot ID")
+                temp_widget.deleteLater()  # Clean up the temporary widget
 
-            logger.info(f"Extracted wafer info - Wafer ID: {assumed_wafer_id}, Lot ID: {lot_id}")
-            return (assumed_wafer_id, lot_id)
+            logger.info(f"Extracted wafer info - Wafer ID: {wafer_id}, Lot ID: {lot_id}")
+            return (wafer_id, lot_id)
 
         except Exception as e:
             logger.error(f"Error extracting wafer info: {str(e)}")
@@ -652,7 +692,7 @@ class DataProcessor:
             logger.info(f"Found {self.total_dies} dies and {self.total_devices} devices")
 
             if not self.config.debug_flag:
-                wafer_info = self.extract_wafer_info()
+                wafer_info = self.extract_wafer_info_from_path()
                 self.wafer_id = wafer_info[0]
                 self.lot_id = wafer_info[1]
             else:
