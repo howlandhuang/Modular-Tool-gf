@@ -11,7 +11,7 @@ from concurrent.futures import ProcessPoolExecutor
 from collections import defaultdict
 from logging.handlers import QueueHandler
 from multiprocessing import freeze_support
-from func.ulti import lr, ProcessingConfig, log_queue
+from func.ulti import lr, ProcessingConfig, log_queue, InputValidator
 from PyQt6.QtWidgets import QInputDialog, QWidget
 
 # Enable PyDev debugging
@@ -35,6 +35,7 @@ class DataProcessor:
         """
         logger.info("Initializing DataProcessor")
         self.config = config
+        self.validator_processor = InputValidator()
         self.reset_parameters()
         logger.debug("DataProcessor initialized successfully")
 
