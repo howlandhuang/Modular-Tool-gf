@@ -160,7 +160,11 @@
         <string notr="true">background-color: rgb(141, 211, 211);</string>
        </property>
        <property name="currentIndex">
+<<<<<<< HEAD
         <number>0</number>
+=======
+        <number>3</number>
+>>>>>>> 8dfbfd9e3d04cab5c7b44f75efdd3c46d42f0f43
        </property>
        <widget class="QWidget" name="init_page"/>
        <widget class="QWidget" name="extraction_page">
