@@ -1,122 +1,157 @@
-from PyQt6.QtWidgets import QApplication, QWidget, QMessageBox
-from PyQt6 import uic
-import sys, logging, time
+"""
+Modular Tools module for data processing and visualization.
+Provides a GUI interface for various Excel-related operations using a modular tab approach.
+This module can be run directly as the main entry point for the application.
+"""
+
+from PyQt6 import QtWidgets, uic
+from PyQt6.QtWidgets import QApplication, QMessageBox
+import logging
+import sys
+import time
 from pathlib import Path
-from func.excel_tools import ExcelTools
+from multiprocessing import freeze_support
 from func.ulti import setup_logger
+# from func.CsvTool.CsvToolTab import CSVToolTab
 
-sys.argv += ['-platform', 'windows:darkmode=1']
+from func.NoiseTool.NoiseToolTab import NoiseToolTab
+from func.RenameTool.RenameToolTab import RenameToolTab
+# Initialize module logger
+logger = logging.getLogger(__name__)
 
+class ModularTools(QtWidgets.QWidget):
+    """
+    Main widget for Excel processing tools.
+    Uses a modular approach with separate tab widgets.
+    """
 
-class MainWindow(QWidget):
     def __init__(self):
+        """Initialize the Modular Tools widget and load UI."""
         super().__init__()
-        self.logger = logging.getLogger("MainWindow")
-        self.load_ui()
-        self.setup_connections()
-        self.excel_tools = None
-        self.csv_viewer = None
+        logger.info("Initializing Modular Tools widget")
 
+        # Load UI file
+        ui_path = Path(__file__).parent / 'UI' / 'modular_tools.ui'
+        logger.info(f"Loading UI from: {ui_path}")
+        uic.loadUi(ui_path, self)
+        self.setWindowTitle("Modular Tools")
 
-    def load_ui(self):
-        """Load the main UI file"""
-        try:
-            ui_path = Path(__file__).parent /'UI' / 'mainwindow.ui'
-            if not ui_path.exists():
-                self.logger.error(f"UI file not found: {ui_path}")
-                raise FileNotFoundError(f"UI file not found: {ui_path}")
+        # Initialize tab modules
+        self.initialize_tabs()
 
-            uic.loadUi(ui_path, self)
-            self.logger.info("Main UI loaded successfully")
-            self.setWindowTitle("Data Processing Tool")
+        logger.info("Modular Tools initialization complete")
 
-        except Exception as e:
-            self.logger.error(f"Failed to load main UI: {str(e)}")
-            QMessageBox.critical(
-                self,
-                "Error",
-                f"Failed to load UI:\n{str(e)}"
-            )
-            sys.exit(1)
+    def initialize_tabs(self):
+        """Initialize tab module instances and add them to the tab widget."""
+        logger.info("Initializing tab modules")
 
-    def setup_connections(self):
-        """Setup button connections"""
-        self.excel_processing.clicked.connect(self.open_excel_tools)
-        self.csv_processing.clicked.connect(self.open_csv_tools)
+        # Create tab instances
+        # self.csv_tab = CSVToolTab()
+        self.noise_tab = NoiseToolTab()
+        self.rename_tab = RenameToolTab()
 
-    def open_excel_tools(self):
-        try:
-            if self.excel_tools is None:
-                self.logger.info("Creating Excel Tools window")
-                self.excel_tools = ExcelTools()
-                self.excel_tools.destroyed.connect(self.on_excel_tools_closed)
+        # Clear existing tabs and add our custom tabs
+        self.tabWidget.clear()
 
-            self.excel_tools.show()
-            self.excel_tools.raise_()  # Bring window to front
-            self.excel_tools.activateWindow()
+        # Add tabs to the tab widget
+        # self.tabWidget.addTab(self.csv_tab, "CSV Tool")
+        self.tabWidget.addTab(self.noise_tab, "Noise Tool")
+        self.tabWidget.addTab(self.rename_tab, "Rename Tool")
 
-        except Exception as e:
-            self.logger.error(f"Failed to open Excel Tools: {str(e)}")
-            QMessageBox.critical(
-                self,
-                "Error",
-                f"Failed to open Excel Tools:\n{str(e)}"
-            )
-
-    def open_csv_tools(self):
-        """Placeholder for CSV viewer"""
-        QMessageBox.information(
-            self,
-            "Info",
-            "CSV viewer not implemented yet."
-        )
-
-    def on_excel_tools_closed(self):
-        """Handle Excel viewer window closure"""
-        self.logger.info("Excel Tools GUI closed.")
-        self.excel_tools = None  # Remove reference to allow garbage collection
+        logger.info("Tab modules initialized and added to tab widget")
 
     def closeEvent(self, event):
-        self.logger.info("Main GUI is closing.")  # Log when the window is being closed
-        event.accept()  # Accept the event to proceed with closing
+        """Handle window close event."""
+        logger.info("Modular Tools window closing - cleaning up tabs")
+        try:
+            # Clean up tabs explicitly
+            if hasattr(self, 'csv_tab'):
+                self.csv_tab = None
+
+            if hasattr(self, 'noise_tab'):
+                self.noise_tab = None
+
+            # Clear tab widget
+            self.tabWidget.clear()
+
+            logger.info("All tabs cleaned up successfully")
+            self.hide()
+            self.deleteLater()
+            event.accept()
+        except Exception as e:
+            logger.error(f"Error during window closure: {str(e)}")
+            event.accept()  # Still close even if cleanup fails
+
+    def __del__(self):
+        """Cleanup when object is deleted."""
+        logger.info("Modular Tools object being deleted")
 
 def create_log_path():
+    """Create logs directory if it doesn't exist."""
+    logger = logging.getLogger("Setup")
     try:
         data_dir = Path('logs')
+        logger.debug(f"Creating log directory at: {data_dir.absolute()}")
         data_dir.mkdir(exist_ok=True)
+        logger.info("Log directory created/verified")
+        return data_dir
     except Exception as e:
+        logger.error(f"Failed to create log directory: {str(e)}")
         print(f"Failed to create log directory:\n{str(e)}")
         sys.exit(1)
 
 def handle_exception(exc_type, exc_value, exc_traceback):
+    """Global exception handler to show error messages to user."""
+    logger = logging.getLogger("ExceptionHandler")
     error_msg = f"An unexpected error occurred:\n{str(exc_value)}"
+    logger.error(f"Uncaught exception: {error_msg}", exc_info=(exc_type, exc_value, exc_traceback))
     print(error_msg)
     if QApplication.instance():
         QMessageBox.critical(None, "Error", error_msg)
     sys.exit(1)
 
 def main():
-    create_log_path()
-    create_time = time.strftime("%Y_%m_%d_%H_%M_%S")
-    listener = setup_logger(f"./logs/app_{create_time}.txt")
-
-    sys.excepthook = handle_exception
-    # Initialize multiprocessing support before QApplication
-    if sys.platform.startswith('win'):
-        import multiprocessing
-        multiprocessing.freeze_support()
-
-    app = QApplication(sys.argv)
-    app.setStyle('Fusion')
-    # app.setStyle('windowsvista')
-    window = MainWindow()
-    window.show()
-
+    """
+    Main function for standalone execution.
+    Creates and shows the Modular Tools window for UI testing.
+    """
     try:
-        sys.exit(app.exec())
-    finally:
-        listener.stop()  # Stop the logger when the app exits
+        # Initialize logging
+        create_log_path()
+        create_time = time.strftime("%Y_%m_%d_%H_%M_%S")
+        log_file = f"./logs/modular_tools_{create_time}.txt"
+        listener = setup_logger(log_file)
+        logger = logging.getLogger("ModularToolsStandalone")
+        logger.info("Starting Modular Tools in standalone mode")
 
+        # Set global exception handler
+        sys.excepthook = handle_exception
+        logger.debug("Global exception handler set")
+
+        # Enable Windows dark mode
+        sys.argv += ['-platform', 'windows:darkmode=1']
+
+        # Create application
+        app = QApplication(sys.argv)
+        app.setStyle('Fusion')  # Use Fusion style for consistent look
+
+        # Create and show Modular Tools window
+        window = ModularTools()
+        window.show()
+
+        # Start event loop
+        logger.info("Starting application event loop")
+        try:
+            return_code = app.exec()
+            logger.info(f"Application exiting with code: {return_code}")
+            sys.exit(return_code)
+        finally:
+            logger.info("Shutting down logging")
+            listener.stop()  # Ensure logger is properly closed
+
+    except Exception as e:
+        print(f"Critical error during startup: {str(e)}")
+        sys.exit(1)
 
 if __name__ == "__main__":
     from multiprocessing import freeze_support

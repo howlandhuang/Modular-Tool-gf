@@ -1,13 +1,42 @@
-.vscode/
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+func/**/__pycache__/
+# Distribution / packaging
 dist/
-logs/
-ref/
-func/__pycache__/
-dev/
-ui/
 build/
+*.egg-info/
+
+# Virtual environments
+venv/
+env/
+.env/
+.venv/
+
+# IDE specific files
+.idea/
+.cursor/
+.vscode/
+*.swp
+*.swo
+
+# Logs and databases
+*.log
+logs/
+*.db
+*.sqlite3
+
+# Local development settings
+.env
+.env.local
+
+# My files
+ref/
+func/UNUSED/
 *.txt
 temp.py
 demo.py
 debug.py
-main.spec
+*.spec
