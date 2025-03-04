@@ -39,4 +39,4 @@ func/UNUSED/
 temp.py
 demo.py
 debug.py
-main.spec
+*.spec
