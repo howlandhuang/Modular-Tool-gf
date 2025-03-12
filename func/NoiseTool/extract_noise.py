@@ -13,7 +13,7 @@ from logging.handlers import QueueHandler
 from multiprocessing import freeze_support
 from func.ulti import (
     lr, ProcessingConfig,
-    validate_wafer_id, validate_lot_id, get_user_input
+    validate_wafer_id, get_user_input, send_warning, validate_width_length
 )
 from PyQt6.QtWidgets import QInputDialog, QWidget
 
@@ -70,7 +70,7 @@ class DataProcessor:
                 logger.info(f"Found wafer ID from path structure: {wafer_id}")
             else:
                 logger.warning("Path structure does not match expected format")
-                wafer_id, _ = get_user_input(
+                wafer_id= get_user_input(
                     'Wafer ID Input',
                     'Please input wafer ID:',
                     validate_wafer_id
@@ -510,7 +510,7 @@ class DataProcessor:
             logger.error(f"Error exporting prediction results: {str(e)}")
             raise
 
-    def process_single_device(self, device_name):
+    def process_single_device(self, device_param):
         """
         Process a single device's data.
 
@@ -520,6 +520,7 @@ class DataProcessor:
         Returns:
             str: Processing time in seconds
         """
+        device_name, width, length = device_param
         logger.info(f'Processing device: {device_name[:-4]}')
         start_time = time.perf_counter()
 
@@ -575,35 +576,27 @@ class DataProcessor:
                 logger.debug("Calculating statistics")
                 for row in p2:
                     # Calculate Sid statistics
-                    sid_med = statistics.median(row[1:])
-                    sid_min = min(row[1:])
-                    sid_max = max(row[1:])
+                    sid = row[1:]
 
                     # Calculate normalized Id statistics
-                    id2 = [self.get_normalised(x, y) for x,y in zip(row[1:], part1[0][1:])]
-                    id2_med = statistics.median(id2)
-                    id2_min = min(id2)
-                    id2_max = max(id2)
+                    id2 = [self.get_normalised(x, y) for x,y in zip(sid, part1[0][1:])]
 
                     # Calculate Gm statistics
-                    gm2 = [self.get_normalised(x, y) for x,y in zip(row[1:], part1[1][1:])]
-                    gm2_med = statistics.median(gm2)
-                    gm2_min = min(gm2)
-                    gm2_max = max(gm2)
+                    svg = [self.get_normalised(x, y) for x,y in zip(sid, part1[1][1:])]
 
                     # Calculate frequency-dependent statistics
-                    f = [x*row[0] for x in row[1:]]
-                    f_med = statistics.median(f)
-                    f_min = min(f)
-                    f_max = max(f)
+                    sid_f = [x*row[0] for x in sid]
+
+                    svg_norm = [x*width*length for x in svg]
 
                     # Combine all data
-                    row.extend(id2 + gm2 + f)
+                    row.extend(id2 + svg + sid_f + svg_norm)
                     row.extend([
-                        sid_med, sid_min, sid_max,
-                        id2_med, id2_min, id2_max,
-                        gm2_med, gm2_min, gm2_max,
-                        f_med, f_min, f_max
+                        statistics.median(sid), min(sid), max(sid),
+                        statistics.median(id2), min(id2), max(id2),
+                        statistics.median(svg), min(svg), max(svg),
+                        statistics.median(sid_f), min(sid_f), max(sid_f),
+                        statistics.median(svg_norm), min(svg_norm), max(svg_norm)
                     ])
 
                 # Create complete headers
@@ -612,10 +605,12 @@ class DataProcessor:
                     [f"{col}_Sid/id^2" for col in die_prefix] +
                     [f"{col}_Svg" for col in die_prefix] +
                     [f"{col}_Sid*f" for col in die_prefix] +
+                    [f"{col}_Svg_norm" for col in die_prefix] + 
                     ['Sid_med', 'Sid_min', 'Sid_max',
                      'Sid/id^2_med', 'Sid/id^2_min', 'Sid/id^2_max',
                      'Svg_med', 'Svg_min', 'Svg_max',
-                     'Sid*f_med', 'Sid*f_min', 'Sid*f_max']
+                     'Sid*f_med', 'Sid*f_min', 'Sid*f_max',
+                     'Svg_norm_med', 'Svg_norm_min', 'Svg_norm_max']
                 )
                 df_part2 = pd.DataFrame(p2, columns=part2_header)
                 valid_noise_list_ori[sheet_name] = (df_part1, df_part2)
@@ -691,6 +686,24 @@ class DataProcessor:
             self.wafer_id = wafer_info[0]
             self.lot_id = wafer_info[1]
             logger.debug(f"Wafer ID: {self.wafer_id}, Lot ID is: {self.lot_id}")
+
+            try:
+                for idx, device in enumerate(self.device_list):
+                    width = get_user_input(
+                        f'{device} - Width Input',
+                        f'{device}\nPlease input device width:',
+                        validate_width_length
+                    )
+                    length = get_user_input(
+                        f'{device} - Length Input',
+                        f'{device}\nPlease input device length:',
+                        validate_width_length
+                    )
+                    self.device_list[idx] = (device, width, length)
+
+            except Exception as e:
+                logger.error(f"Error extracting wafer width and length: {str(e)}")
+                raise
 
             # Process devices in parallel
             logger.info("Starting parallel device processing")

@@ -14,6 +14,8 @@ from dataclasses import dataclass
 from logging.handlers import QueueHandler, QueueListener
 from queue import Queue
 from PyQt6.QtWidgets import QWidget, QInputDialog, QMessageBox
+from typing import Any, Callable, Optional, Union, TypeVar, ParamSpec
+from functools import wraps
 
 # Global log queue for multiprocessing
 log_queue = Queue()
@@ -158,7 +160,7 @@ def remove_outliers(df, threshold: float, tolerance: float):
         total_outliers = 0
 
         # Process each noise type
-        noise_types = ['Sid', 'Sid/id^2', 'Svg', 'Sid*f']
+        noise_types = ['Sid', 'Sid/id^2', 'Svg', 'Sid*f', 'Svg_norm']
         noise_columns = [col for col in df_copy.columns if col != "Frequency"]
 
         for condition in noise_types:
@@ -281,6 +283,7 @@ SINGLE_FREQ_PATTERN = r'^\s*(\d+\.?\d*)\s*$'
 FREQ_LIST_PATTERN = r'^\s*\d+\.?\d*\s*(?:,\s*\d+\.?\d*\s*)*$'
 LOT_ID_PATTERN = r'^\d[a-zA-Z]{3}\d{5}(_RT)?'
 WAFER_ID_PATTERN = r'^[wW]\d{1,2}$'
+DEVICE_WIDTH_LENGTH_PATTERN = r'^\s*(\d+\.?\d*)\s*$'
 RESERVED_NAMES = {
     "CON", "PRN", "AUX", "NUL",
     "COM1", "COM2", "COM3", "COM4", "COM5",
@@ -289,263 +292,171 @@ RESERVED_NAMES = {
     "LPT6", "LPT7", "LPT8", "LPT9"
 }
 
-def validate_path(path_str):
+class ValidationError(Exception):
+    """Custom exception for validation errors."""
+    def __init__(self, message: str, value: Any = None, show_warning: bool = True):
+        self.message = message
+        self.value = value
+        self.show_warning = show_warning
+        super().__init__(message)
+
+    def handle(self) -> Optional[Any]:
+        """
+        Handle the validation error by showing warning if needed and returning value if available.
+
+        Returns:
+            Optional[Any]: The value if available, None otherwise
+        """
+        if self.show_warning:
+            send_warning(self.message)
+        return self.value
+
+def handle_validation(func: Callable) -> Callable:
     """
-    Validate file path string.
+    Decorator to handle validation errors automatically.
+    Shows warnings for ValidationError and returns None for other exceptions.
 
     Args:
-        path_str: Path string to validate
+        func: The function to decorate
 
     Returns:
-        tuple: (is_valid, error_message, validated_path)
+        Callable: Decorated function that handles validation errors
     """
-    logger.debug(f"Validating path: {path_str}")
-    try:
-        if not path_str or not path_str.strip():
-            logger.warning("Empty path provided")
-            return False, "Path cannot be empty", None
+    @wraps(func)
+    def wrapper(*args, **kwargs) -> Optional[Any]:
+        try:
+            return func(*args, **kwargs)
+        except ValidationError as e:
+            return e.handle()
+        except Exception as e:
+            logger.error(f"Unexpected error in {func.__name__}: {str(e)}")
+            send_warning(f"An unexpected error occurred: {str(e)}")
+            return None
+    return wrapper
 
-        path_str = path_str.strip()
-
-        # Check for invalid characters
-        if re.search(INVALID_PATH_CHARS, path_str):
-            logger.warning(f"Invalid characters found in path: {path_str}")
-            return False, "Path contains invalid characters", None
-
-        # Check for reserved names on Windows
-        if os.name == 'nt':  # Only check on Windows systems
-            base_name = os.path.basename(path_str).split('.')[0].upper()
-            if base_name in RESERVED_NAMES:
-                logger.warning(f"Reserved name found in path: {base_name}")
-                return False, f"The path string contains a reserved name: {base_name}", None
-
-        # Check path length
-        max_length = 260 if os.name == 'nt' else 4096
-        if len(path_str) > max_length:
-            logger.warning(f"Path exceeds maximum length: {len(path_str)} > {max_length}")
-            return False, f"The path string exceeds the maximum length of {max_length} characters.", None
-
-        logger.debug(f"Path validation successful: {path_str}")
-        return True, "", path_str
-
-    except Exception as e:
-        logger.error(f"Error validating path: {str(e)}")
-        return False, f"Invalid path: {str(e)}", None
-
-def validate_single_number(freq_str):
+@handle_validation
+def validate_input(value: str, validator: Callable[[str], Any]) -> Any:
     """
-    Validate single number input.
+    Generic validation function that handles common validation patterns.
 
     Args:
-        freq_str: Number string to validate
+        value: The input string to validate
+        validator: A validation function that returns the validated value or raises ValidationError
 
     Returns:
-        tuple: (is_valid, error_message, validated_value)
+        The validated value
+
+    Raises:
+        ValidationError: If validation fails
     """
-    logger.debug(f"Validating single number: {freq_str}")
+    if not value or not value.strip():
+        raise ValidationError("Input cannot be empty")
+
+    value = value.strip()
     try:
-        if not freq_str or not freq_str.strip():
-            logger.warning("Empty number string provided")
-            return False, "Input cannot be empty", None
-
-        freq_str = freq_str.strip()
-
-        # Check format
-        match = re.match(SINGLE_FREQ_PATTERN, freq_str)
-        if not match:
-            logger.warning(f"Invalid number format: {freq_str}")
-            return False, "Invalid format. Please provide a single number", None
-
-        # Convert and validate value
-        value = float(freq_str)
-        if value < 0:
-            logger.warning(f"Negative value provided: {value}")
-            return False, "Input cannot be negative", None
-
-        logger.debug(f"Number validation successful: {value}")
-        return True, "", value
-
-    except ValueError:
-        logger.warning(f"Invalid number format: {freq_str}")
-        return False, "Invalid number format", None
+        return validator(value)
+    except ValidationError:
+        raise
     except Exception as e:
-        logger.error(f"Error validating number: {str(e)}")
-        return False, f"Invalid input: {str(e)}", None
+        raise ValidationError(f"Validation error: {str(e)}")
 
-def validate_frequency_list(freq_list):
-    """
-    Validate frequency list input.
+@handle_validation
+def validate_filename(value: str) -> str:
+    """Validate filename string."""
+    if re.search(INVALID_PATH_CHARS, value):
+        raise ValidationError("Filename contains invalid characters")
 
-    Args:
-        freq_list: Comma-separated frequency list to validate
+    if os.name == 'nt':
+        base_name = os.path.splitext(value)[0].upper()
+        if base_name in RESERVED_NAMES:
+            raise ValidationError(f"Filename cannot be a reserved name: {base_name}")
 
-    Returns:
-        tuple: (is_valid, error_message, validated_list)
-    """
-    logger.debug(f"Validating frequency list: {freq_list}")
-    try:
-        if not freq_list or not freq_list.strip():
-            logger.warning("Empty frequency list provided")
-            return False, "Frequency list cannot be empty", None
+    if len(value) > 255:
+        raise ValidationError("Filename exceeds maximum length of 255 characters")
 
-        freq_list = freq_list.strip()
+    return value
 
-        # Check for double commas
-        if ',,' in freq_list:
-            logger.warning("Double commas found in frequency list")
-            return False, "Double commas are not allowed", None
+@handle_validation
+def validate_single_number(value: str) -> float:
+    """Validate single number input."""
+    if not re.match(SINGLE_FREQ_PATTERN, value):
+        raise ValidationError("Invalid format. Please provide a single number")
 
-        # Check if string starts or ends with comma
-        if freq_list.startswith(',') or freq_list.endswith(','):
-            logger.warning("Frequency list starts or ends with comma")
-            return False, "Input cannot start or end with a comma", None
+    num = float(value)
+    if num < 0:
+        raise ValidationError("Input cannot be negative")
 
-        # Match against pattern for strict comma separation
-        if not re.match(FREQ_LIST_PATTERN, freq_list):
-            logger.warning(f"Invalid frequency list format: {freq_list}")
-            return False, "Invalid format. Use comma-separated numbers only", None
+    return num
 
-        # Split and convert to floats
-        frequencies = []
-        for num in freq_list.split(','):
-            try:
-                value = float(num.strip())
-                if value < 0:
-                    logger.warning(f"Negative frequency found: {value}")
-                    return False, f"Negative frequency ({value}) is not allowed", None
-                frequencies.append(value)
-            except ValueError:
-                logger.warning(f"Invalid number in frequency list: {num.strip()}")
-                return False, f"Invalid number format: {num.strip()}", None
+@handle_validation
+def validate_width_length(value: str) -> float:
+    """Validate width/length input."""
+    if not re.match(DEVICE_WIDTH_LENGTH_PATTERN, value):
+        raise ValidationError("Invalid format. Please provide a single number")
 
-        logger.debug(f"Frequency list validation successful: {frequencies}")
-        return True, "", frequencies
+    num = float(value)
+    if num < 0:
+        raise ValidationError("Input cannot be negative")
 
-    except Exception as e:
-        logger.error(f"Error validating frequency list: {str(e)}")
-        return False, f"Invalid frequency list input: {str(e)}", None
+    return num
 
-def validate_range(range_str, lower, upper):
-    """
-    Validate numeric range input.
+@handle_validation
+def validate_frequency_list(value: str) -> list[float]:
+    """Validate frequency list input."""
+    if ',,' in value:
+        raise ValidationError("Double commas are not allowed")
 
-    Args:
-        range_str: Range value to validate
-        lower: Lower bound of valid range
-        upper: Upper bound of valid range
+    if value.startswith(',') or value.endswith(','):
+        raise ValidationError("Input cannot start or end with a comma")
 
-    Returns:
-        tuple: (is_valid, error_message, validated_value)
-    """
-    logger.debug(f"Validating range: {range_str} (bounds: {lower} to {upper})")
-    try:
-        if not range_str or not range_str.strip():
-            logger.warning("Empty range string provided")
-            return False, "Input cannot be empty", None
+    if not re.match(FREQ_LIST_PATTERN, value):
+        raise ValidationError("Invalid format. Use comma-separated numbers only")
 
-        range_str = range_str.strip()
+    frequencies = []
+    for num in value.split(','):
+        try:
+            freq = float(num.strip())
+            if freq < 0:
+                raise ValidationError(f"Negative frequency ({freq}) is not allowed")
+            frequencies.append(freq)
+        except ValueError:
+            raise ValidationError(f"Invalid number format: {num.strip()}")
 
-        # Convert and validate value
-        value = float(range_str)
-        if value < lower or value > upper:
-            logger.warning(f"Value {value} outside valid range [{lower}, {upper}]")
-            return False, f"Input must be between {lower} and {upper}", None
+    return frequencies
 
-        logger.debug(f"Range validation successful: {value}")
-        return True, "", value
+@handle_validation
+def validate_range(value: str, lower: float, upper: float) -> float:
+    """Validate numeric range input."""
+    num = float(value)
+    if num < lower or num > upper:
+        raise ValidationError(f"Input must be between {lower} and {upper}")
+    return num
 
-    except ValueError:
-        logger.warning(f"Invalid range format: {range_str}")
-        return False, "Invalid number format", None
-    except Exception as e:
-        logger.error(f"Error validating range: {str(e)}")
-        return False, f"Invalid input: {str(e)}", None
+@handle_validation
+def validate_lot_id(value: str) -> str:
+    """Validate lot id input."""
+    if not re.match(LOT_ID_PATTERN, value):
+        raise ValidationError("Invalid format. Please provide a correct lot id")
+    return value
 
-def validate_lot_id(lot_id):
-    """
-    Validate lot id input.
+@handle_validation
+def validate_wafer_id(value: str) -> str:
+    """Validate wafer id input."""
+    if not re.match(WAFER_ID_PATTERN, value):
+        raise ValidationError("Invalid format. Please provide a correct wafer id")
+    return value
 
-    Args:
-        lot_id: Lot id to validate
-
-    Returns:
-        tuple: (is_valid, error_message, validated_id)
-    """
-    logger.debug(f"Validating lot id: {lot_id}")
-    try:
-        if not lot_id or not lot_id.strip():
-            logger.warning("Empty lot id provided")
-            return False, "Input cannot be empty", None
-
-        lot_id = lot_id.strip()
-
-        # Check format
-        match = re.match(LOT_ID_PATTERN, lot_id)
-        if not match:
-            logger.warning(f"Invalid lot id format: {lot_id}")
-            return False, "Invalid format. Please provide a correct lot id", None
-
-        logger.debug(f"lot id validation successful: {lot_id}")
-        return True, "", lot_id
-
-    except ValueError:
-        logger.warning(f"Invalid lot_id format: {lot_id}")
-        return False, "Invalid lot id format", None
-    except Exception as e:
-        logger.error(f"Error validating range: {str(e)}")
-        return False, f"Invalid input: {str(e)}", None
-
-def validate_wafer_id(wafer_id):
-    """
-    Validate wafer id input.
-
-    Args:
-        wafer_id: wafer id to validate
-
-    Returns:
-        tuple: (is_valid, error_message, validated_id)
-    """
-    logger.debug(f"Validating wafer id: {wafer_id}")
-    try:
-        if not wafer_id or not wafer_id.strip():
-            logger.warning("Empty wafer id provided")
-            return False, "Input cannot be empty", None
-
-        wafer_id = wafer_id.strip()
-
-        # Check format
-        match = re.match(WAFER_ID_PATTERN, wafer_id)
-        if not match:
-            logger.warning(f"Invalid wafer id format: {wafer_id}")
-            return False, "Invalid format. Please provide a correct wafer id", None
-
-        logger.debug(f"wafer id validation successful: {wafer_id}")
-        return True, "", wafer_id
-
-    except ValueError:
-        logger.warning(f"Invalid wafer_id format: {wafer_id}")
-        return False, "Invalid wafer id format", None
-    except Exception as e:
-        logger.error(f"Error validating range: {str(e)}")
-        return False, f"Invalid input: {str(e)}", None
-
-def get_user_input(title: str, prompt: str, validator_func: callable) -> tuple[str, bool]:
+def get_user_input(title: str, prompt: str, validator: Callable[[str], Any]) -> Optional[Any]:
     """
     Get validated user input via dialog.
 
     Args:
         title: Dialog window title
         prompt: Input prompt message
-        validator_func: Function to validate input
-        parent: Optional parent widget for the dialog
+        validator: Function to validate input
 
     Returns:
-        tuple: (validated_value: str, success: bool)
-        - validated_value will be the validated input or empty string if cancelled/failed
-        - success will be True if input was validated successfully, False otherwise
-
-    Note:
-        validator_func should return tuple (is_valid: bool, error_msg: str, validated_value: str)
+        Optional[Any]: The validated input or None if cancelled/failed
     """
     temp_widget = QWidget()
     try:
@@ -553,22 +464,34 @@ def get_user_input(title: str, prompt: str, validator_func: callable) -> tuple[s
             value, ok = QInputDialog.getText(temp_widget, title, prompt)
             if not ok:
                 logger.debug(f"User cancelled {title} input")
-                return 'default', False
+                return None
 
             try:
-                is_valid, err_msg, validated_value = validator_func(value)
-                if is_valid:
-                    logger.info(f"User provided valid {title}: {validated_value}")
-                    return validated_value, True
+                validated_value = validate_input(value, validator)
+                logger.info(f"User provided valid {title}: {validated_value}")
+                return validated_value
 
-                logger.warning(f"Invalid {title} input: {err_msg}")
-                QMessageBox.warning(temp_widget, f"Invalid {title}", err_msg)
+            except ValidationError as e:
+                logger.warning(f"Invalid {title} input: {e.message}")
+                QMessageBox.warning(temp_widget, f"Invalid {title}", e.message)
 
             except Exception as e:
-                logger.error(f"Validation error for {title}: {str(e)}")
-                return 'default', False
+                logger.error(f"Unexpected error during {title} validation: {str(e)}")
+                return None
+
     except Exception as e:
         logger.error(f"Error getting user input for {title}: {str(e)}")
-        return 'default', False
+        return None
     finally:
         temp_widget.deleteLater()
+
+def send_warning(message: str):
+    """
+    Send a warning message to the logger and show it to the user.
+
+    Args:
+        message: The warning message to display
+    """
+    logger.warning(message)
+    QMessageBox.warning(None, "Warning", message)
+

@@ -27,8 +27,8 @@ class StackProcessor:
         """
         logger.info("Initializing StackProcessor")
         self.config = config
-        self.type_of_noise = 4
-        logger.debug(f"Stack processor initialized with {self.type_of_noise} noise types")
+        # self.type_of_noise = 4
+        # logger.debug(f"Stack processor initialized with {self.type_of_noise} noise types")
 
     def _stacking_noise_table(self, save_file):
         """
@@ -96,38 +96,6 @@ class StackProcessor:
         except Exception as e:
             logger.error(f"Error during file stacking: {str(e)}")
             raise
-
-    # def _stacking_prediction(self, file_path):
-
-    #     df = pd.read_excel(file_path, sheet_name='Prediction', header=[0,1,2], index_col=0)
-
-    #     if match := re.search(r"0_Prediction_(.*?)_W#(\d+)", file_path):
-    #         device_name = match.group(1)
-    #         wafer_num = match.group(2)
-    #         print(f"Device name: {device_name}")
-    #         print(f"Wafer number: {wafer_num}")
-    #     result = pd.DataFrame()
-    #     # Iterate through each bias level
-    #     for bias in df.columns.levels[0]:
-    #         # Get all columns for this bias
-    #         params = df[bias]['Parameters']
-    #         for freq in [i for i in df.columns.levels[1] if i != 'Parameters']:
-    #             tmp = pd.concat([params[['Vd (V)', 'Vg (V)', 'Id (A)', 'gm (S)']], df[bias][freq]], axis=1)
-    #             tmp.insert(0,'Frequency',[freq]*len(df.index.to_list()))
-    #             tmp.insert(1,'Bias',[bias]*len(df.index.to_list()))
-    #             tmp['Site'] = df.index.to_list()
-    #             tmp['wafer'] = f'W{wafer_num}'
-    #             tmp['device'] = device_name
-    #             tmp = tmp.set_index('device')
-    #             cols = tmp.columns.tolist()
-    #             cols.remove('Site')  # Remove Die from its current position
-    #             cols.remove('wafer')
-    #             cols.insert(0, 'Site')
-    #             cols.insert(0, 'wafer')
-    #             tmp = tmp[cols]
-    #             result = pd.concat([result, tmp], axis=0)
-
-    #     result.to_csv('demo_result.csv', index=True)
 
     def run_noise_table_stacking(self, save_file: str) -> None:
         """

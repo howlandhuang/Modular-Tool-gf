@@ -63,11 +63,6 @@
      </item>
      <item>
       <widget class="QPushButton" name="output_selection_btn">
-       <property name="font">
-        <font>
-         <pointsize>8</pointsize>
-        </font>
-       </property>
        <property name="text">
         <string>Select Output</string>
        </property>
@@ -88,11 +83,6 @@
      </item>
      <item>
       <widget class="QLabel" name="Output_label">
-       <property name="font">
-        <font>
-         <pointsize>10</pointsize>
-        </font>
-       </property>
        <property name="text">
         <string>Output:</string>
        </property>
@@ -160,11 +150,7 @@
         <string notr="true">background-color: rgb(141, 211, 211);</string>
        </property>
        <property name="currentIndex">
-<<<<<<< HEAD
         <number>0</number>
-=======
-        <number>3</number>
->>>>>>> 8dfbfd9e3d04cab5c7b44f75efdd3c46d42f0f43
        </property>
        <widget class="QWidget" name="init_page"/>
        <widget class="QWidget" name="extraction_page">
@@ -266,6 +252,12 @@
            <width>47</width>
            <height>14</height>
           </rect>
+         </property>
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="MinimumExpanding" vsizetype="Preferred">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
          </property>
          <property name="text">
           <string>Interests</string>
@@ -639,6 +631,25 @@ color: rgb(202, 0, 202);
          </property>
          <property name="autoRepeat">
           <bool>false</bool>
+         </property>
+        </widget>
+        <widget class="QCheckBox" name="svg_norm_box">
+         <property name="geometry">
+          <rect>
+           <x>10</x>
+           <y>110</y>
+           <width>61</width>
+           <height>18</height>
+          </rect>
+         </property>
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="text">
+          <string>Svg*W*L</string>
          </property>
         </widget>
        </widget>

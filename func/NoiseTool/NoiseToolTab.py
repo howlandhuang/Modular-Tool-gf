@@ -9,7 +9,10 @@ import logging, os
 from pathlib import Path
 from PyQt6 import uic
 from func import ulti
-from func.ulti import get_user_input, validate_path
+from func.ulti import (
+    get_user_input, validate_filename, validate_single_number,
+    validate_frequency_list, validate_range, ValidationError
+)
 from func.NoiseTool import extract_noise
 from func.NoiseTool import stack_table
 from func.NoiseTool import noise_plot
@@ -266,11 +269,11 @@ class NoiseToolTab(QWidget):
 
             # Validate input parameters
             logger.debug("Validating input parameters")
-            is_valid_low, err_msg_low, pred_range_lower = ulti.validate_single_number(self.range_low_edit.text())
-            is_valid_high, err_msg_high, pred_range_upper = ulti.validate_single_number(self.range_high_edit.text())
-            is_valid_foi, err_msg_foi, interest_freq = ulti.validate_frequency_list(self.interest_freq_edit.text())
+            try:
+                pred_range_lower = validate_single_number(self.range_low_edit.text())
+                pred_range_upper = validate_single_number(self.range_high_edit.text())
+                interest_freq = validate_frequency_list(self.interest_freq_edit.text())
 
-            if is_valid_low and is_valid_high and is_valid_foi:
                 # Set validated parameters
                 self.uni_config.pred_range_lower = pred_range_lower
                 self.uni_config.pred_range_upper = pred_range_upper
@@ -278,17 +281,10 @@ class NoiseToolTab(QWidget):
                 logger.info("Parameters validated, starting extraction")
                 self.extract_processor.process_all_devices()
                 logger.info("Raw data extraction completed successfully")
-            else:
-                # Show validation errors
-                error_messages = []
-                if not is_valid_low:
-                    error_messages.append(f"Prediction Lower Range: {err_msg_low}")
-                if not is_valid_high:
-                    error_messages.append(f"Prediction Higher Range: {err_msg_high}")
-                if not is_valid_foi:
-                    error_messages.append(f"Interest Prediction Frequency: {err_msg_foi}")
-                logger.warning(f"Parameter validation failed: {', '.join(error_messages)}")
-                QMessageBox.warning(self, "Input Validation Errors", "\n".join(error_messages))
+
+            except ValidationError as e:
+                logger.warning(f"Parameter validation failed: {e.message}")
+                QMessageBox.warning(self, "Input Validation Error", e.message)
 
         except Exception as e:
             logger.error(f"Error during raw data extraction: {str(e)}")
@@ -302,14 +298,13 @@ class NoiseToolTab(QWidget):
 
         try:
             logger.debug("Using file name from user input")
-            save_name, success = get_user_input(
+            save_name = get_user_input(
                 'Input File Name',
                 'Enter the file name:',
-                validate_path
+                validate_filename
             )
-            if not success:
+            if save_name is None:
                 logger.warning("User cancelled or invalid file name input")
-                QMessageBox.warning(self, "Error File Name Input", "User cancelled or invalid file name input, please try again.")
                 return
 
             logger.info(f"Starting stacking with save name: {save_name}")
@@ -328,14 +323,13 @@ class NoiseToolTab(QWidget):
 
         try:
             logger.debug("Using file name from user input")
-            save_name, success = get_user_input(
+            save_name = get_user_input(
                 'Input File Name',
                 'Enter the file name:',
-                validate_path
+                validate_filename
             )
-            if not success:
+            if save_name is None:
                 logger.warning("User cancelled or invalid file name input")
-                QMessageBox.warning(self, "Error File Name Input", "User cancelled or invalid file name input, please try again.")
                 return
 
             logger.info(f"Starting stacking with save name: {save_name}")
@@ -363,6 +357,8 @@ class NoiseToolTab(QWidget):
                 noise_types.append('Svg')
             if self.sid_f_box.isChecked():
                 noise_types.append('Sid*f')
+            if self.svg_norm_box.isChecked():
+                noise_types.append('Svg_norm')
 
             logger.debug(f"Selected noise types: {noise_types}")
             if not noise_types:
@@ -378,33 +374,27 @@ class NoiseToolTab(QWidget):
             else:
                 logger.debug("Getting save name from user")
                 self.uni_config.debug_flag = False
-                save_name, success = get_user_input(
+                save_name = get_user_input(
                     'Input File Name',
                     'Enter the file name:',
-                    validate_path
+                    validate_filename
                 )
-                if not success:
+                if save_name is None:
                     logger.warning("User cancelled or invalid file name input")
-                    QMessageBox.warning(self, "Error File Name Input", "User cancelled or invalid file name input, please try again.")
                     return
 
             # Check filter threshold and tolerance setting
             if self.filter_outliers_box.isChecked():
                 logger.debug("Configuring outlier filtering")
                 self.uni_config.filter_outliers_flag = True
-                is_valid_threshold, err_msg_threshold, self.uni_config.filter_threshold = ulti.validate_range(
-                    self.filter_threshold_edit.text(), 0.0, 1.0)
-                is_valid_tolerance, err_msg_tolerance, self.uni_config.filter_tolerance = ulti.validate_range(
-                    self.filter_tolerance_edit.text(), 0.0, 3.0)
-
-                if not is_valid_threshold or not is_valid_tolerance:
-                    error_messages = []
-                    if not is_valid_threshold:
-                        error_messages.append(f"Invalid Filter Threshold Input: {err_msg_threshold}")
-                    if not is_valid_tolerance:
-                        error_messages.append(f"Invalid Filter Tolerance Input: {err_msg_tolerance}")
-                    logger.warning(f"Invalid filter parameters: {', '.join(error_messages)}")
-                    QMessageBox.warning(self, "Input Validation Errors", "\n".join(error_messages))
+                try:
+                    self.uni_config.filter_threshold = validate_range(
+                        self.filter_threshold_edit.text(), 0.0, 1.0)
+                    self.uni_config.filter_tolerance = validate_range(
+                        self.filter_tolerance_edit.text(), 0.0, 3.0)
+                except ValidationError as e:
+                    logger.warning(f"Invalid filter parameters: {e.message}")
+                    QMessageBox.warning(self, "Input Validation Error", e.message)
                     return
             else:
                 self.uni_config.filter_outliers_flag = False

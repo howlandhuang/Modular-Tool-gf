@@ -6,9 +6,7 @@ Provides functionality for file renaming operations with various methods.
 import os
 import re
 import logging, os
-from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-                            QLabel, QLineEdit, QPushButton, QFileDialog, QTabWidget,
-                            QFormLayout, QTextEdit, QListWidget, QSplitter, QMessageBox, QDialog)
+from PyQt6.QtWidgets import QWidget, QFileDialog, QMessageBox, QDialog
 from PyQt6.QtCore import Qt
 from pathlib import Path
 from PyQt6 import uic
@@ -66,6 +64,7 @@ def replace_regex(folder_path, pattern, replacement, file_filter=None):
     # Compile the regex pattern
     try:
         regex = re.compile(pattern)
+        filter_regex = re.compile(file_filter) if file_filter else None
     except re.error as e:
         return [f"Error in regex pattern: {str(e)}"]
 
@@ -73,12 +72,12 @@ def replace_regex(folder_path, pattern, replacement, file_filter=None):
         if not os.path.isfile(os.path.join(folder_path, filename)):
             continue
 
-        if file_filter and not re.search(file_filter, filename):
+        if filter_regex and not filter_regex.search(filename):
             continue
 
-        if re.search(pattern, filename):
+        if regex.search(filename):
             try:
-                new_name = re.sub(pattern, replacement, filename)
+                new_name = regex.sub(replacement, filename)
                 results.append(f"Renaming: {filename} -> {new_name}")
                 os.rename(os.path.join(folder_path, filename), os.path.join(folder_path, new_name))
             except Exception as e:
@@ -104,6 +103,7 @@ def custom_transform(folder_path, pattern, transform_expr, file_filter=None):
     # Compile the regex pattern
     try:
         regex = re.compile(pattern)
+        filter_regex = re.compile(file_filter) if file_filter else None
     except re.error as e:
         return [f"Error in regex pattern: {str(e)}"]
 
@@ -130,12 +130,12 @@ def custom_transform(folder_path, pattern, transform_expr, file_filter=None):
         if not os.path.isfile(os.path.join(folder_path, filename)):
             continue
 
-        if file_filter and not re.search(file_filter, filename):
+        if filter_regex and not filter_regex.search(filename):
             continue
 
-        if re.search(pattern, filename):
+        if regex.search(filename):
             try:
-                new_name = re.sub(pattern, transform_match, filename)
+                new_name = regex.sub(transform_match, filename)
                 results.append(f"Renaming: {filename} -> {new_name}")
                 os.rename(os.path.join(folder_path, filename), os.path.join(folder_path, new_name))
             except Exception as e:
@@ -193,8 +193,8 @@ class RenameToolTab(QWidget):
         logger.debug("Setting up UI connections")
         try:
             # Connect signals
-            self.folder_edit.textChanged.connect(self.update_file_list)
             self.browse_button.clicked.connect(self.browse_folder)
+            self.folder_edit.textChanged.connect(self.update_file_list)
             self.filter_edit.textChanged.connect(self.update_file_list)
 
             # Connect operation buttons
@@ -213,6 +213,11 @@ class RenameToolTab(QWidget):
         logger.debug("Opening folder browser dialog")
         folder = QFileDialog.getExistingDirectory(self, "Select Folder")
         if folder:
+            if not os.path.isdir(folder):
+                logger.warning("Invalid folder path")
+                QMessageBox.warning(self, "Invalid Folder", "Please select a valid folder.")
+                return
+            self.folder = folder  # Store the folder path
             self.folder_edit.setText(folder)
             self.update_file_list()
 
@@ -220,16 +225,25 @@ class RenameToolTab(QWidget):
         """Update the list of files based on current folder and filter."""
         logger.debug("Updating file list")
         self.file_list.clear()
-        folder = self.folder_edit.text()
-        if not folder or not os.path.isdir(folder):
+
+        if not hasattr(self, 'folder') or not self.folder or not os.path.isdir(self.folder):
             return
 
         file_filter = self.filter_edit.text() if self.filter_edit.text() else None
 
         try:
+            # Validate regex pattern if provided
+            if file_filter:
+                try:
+                    re.compile(file_filter)
+                except re.error as e:
+                    logger.warning(f"Invalid regex pattern: {str(e)}")
+                    QMessageBox.warning(self, "Invalid Filter", f"Invalid regex pattern: {str(e)}")
+                    return
+
             files = []
-            for filename in os.listdir(folder):
-                full_path = os.path.join(folder, filename)
+            for filename in os.listdir(self.folder):
+                full_path = os.path.join(self.folder, filename)
                 if os.path.isfile(full_path):
                     if file_filter and not re.search(file_filter, filename):
                         continue
@@ -241,6 +255,7 @@ class RenameToolTab(QWidget):
             self.file_list.addItems(files)
         except Exception as e:
             logger.error(f"Error updating file list: {str(e)}")
+            QMessageBox.critical(self, "Error", f"Error updating file list:\n{str(e)}")
 
     def check_folder_path(self) -> bool:
         """
@@ -250,10 +265,13 @@ class RenameToolTab(QWidget):
             bool: True if path is valid, False otherwise
         """
         logger.debug("Checking folder path")
-        folder = self.folder_edit.text()
-        if not folder or not os.path.isdir(folder):
-            logger.warning("Missing or invalid folder path")
+        if not hasattr(self, 'folder') or not self.folder:
+            logger.warning("No folder selected")
             QMessageBox.warning(self, "No Folder Selected", "Please select a folder first.")
+            return False
+        if not os.path.isdir(self.folder):
+            logger.warning("Invalid folder path")
+            QMessageBox.warning(self, "Invalid Folder", "The selected folder is no longer valid.")
             return False
         return True
 
@@ -264,20 +282,42 @@ class RenameToolTab(QWidget):
             return
 
         try:
-            folder = self.folder_edit.text()
             prefix = self.prefix_edit.text()
             postfix = self.postfix_edit.text()
             file_filter = self.filter_edit.text() if self.filter_edit.text() else None
 
             if not prefix and not postfix:
                 logger.warning("No prefix or postfix provided")
+                QMessageBox.warning(self, "Invalid Input", "Please provide either a prefix or postfix.")
                 return
 
-            results = add_prefix_postfix(folder, prefix, postfix, file_filter)
+            # Validate new filenames before renaming
+            for filename in os.listdir(self.folder):
+                if not os.path.isfile(os.path.join(self.folder, filename)):
+                    continue
+
+                if file_filter and not re.search(file_filter, filename):
+                    continue
+
+                name_parts = os.path.splitext(filename)
+                base_name = name_parts[0]
+                extension = name_parts[1] if len(name_parts) > 1 else ""
+                new_name = f"{prefix}{base_name}{postfix}{extension}"
+
+                if not ulti.validate_filename(new_name):
+                    QMessageBox.warning(self, "Invalid Filename",
+                                      f"The new filename '{new_name}' is invalid. Please check your input.")
+                    return
+
+            results = add_prefix_postfix(self.folder, prefix, postfix, file_filter)
             self.update_file_list()
             logger.info("Prefix/postfix operation completed")
+        except PermissionError:
+            logger.error("Permission denied while renaming files")
+            QMessageBox.critical(self, "Error", "Permission denied. Some files may be in use or locked.")
         except Exception as e:
             logger.error(f"Error in prefix/postfix operation: {str(e)}")
+            QMessageBox.critical(self, "Error", f"Error during operation:\n{str(e)}")
 
     def run_regex_replace(self):
         """Execute regex replacement operation."""
@@ -286,24 +326,51 @@ class RenameToolTab(QWidget):
             return
 
         try:
-            folder = self.folder_edit.text()
             pattern = self.pattern_edit.text()
             replacement = self.replacement_edit.text()
             file_filter = self.filter_edit.text() if self.filter_edit.text() else None
 
             if not pattern:
                 logger.warning("No pattern provided")
+                QMessageBox.warning(self, "Invalid Input", "Please provide a pattern to match.")
+                return
+
+            # Validate regex pattern
+            try:
+                re.compile(pattern)
+            except re.error as e:
+                logger.warning(f"Invalid regex pattern: {str(e)}")
+                QMessageBox.warning(self, "Invalid Pattern", f"Invalid regex pattern: {str(e)}")
                 return
 
             # Escape pattern if it doesn't contain any regex special characters
             if not any(c in pattern for c in r'.^$*+?{}[]\|()'):
                 pattern = re.escape(pattern)
 
-            results = replace_regex(folder, pattern, replacement, file_filter)
+            # Validate new filenames before renaming
+            for filename in os.listdir(self.folder):
+                if not os.path.isfile(os.path.join(self.folder, filename)):
+                    continue
+
+                if file_filter and not re.search(file_filter, filename):
+                    continue
+
+                if re.search(pattern, filename):
+                    new_name = re.sub(pattern, replacement, filename)
+                    if not ulti.validate_filename(new_name):
+                        QMessageBox.warning(self, "Invalid Filename",
+                                          f"The new filename '{new_name}' is invalid. Please check your input.")
+                        return
+
+            results = replace_regex(self.folder, pattern, replacement, file_filter)
             self.update_file_list()
             logger.info("Regex replacement operation completed")
+        except PermissionError:
+            logger.error("Permission denied while renaming files")
+            QMessageBox.critical(self, "Error", "Permission denied. Some files may be in use or locked.")
         except Exception as e:
             logger.error(f"Error in regex replacement: {str(e)}")
+            QMessageBox.critical(self, "Error", f"Error during operation:\n{str(e)}")
 
     def run_custom_transform(self):
         """Execute custom transform operation."""
@@ -312,24 +379,61 @@ class RenameToolTab(QWidget):
             return
 
         try:
-            folder = self.folder_edit.text()
             pattern = self.pattern_edit.text()
             transform_expr = self.transform_edit.text()
             file_filter = self.filter_edit.text() if self.filter_edit.text() else None
 
             if not pattern:
                 logger.warning("No pattern provided")
+                QMessageBox.warning(self, "Invalid Input", "Please provide a pattern to match.")
                 return
 
             if not transform_expr:
                 logger.warning("No transform expression provided")
+                QMessageBox.warning(self, "Invalid Input", "Please provide a transform expression.")
                 return
 
-            results = custom_transform(folder, pattern, transform_expr, file_filter)
+            # Validate regex pattern
+            try:
+                re.compile(pattern)
+            except re.error as e:
+                logger.warning(f"Invalid regex pattern: {str(e)}")
+                QMessageBox.warning(self, "Invalid Pattern", f"Invalid regex pattern: {str(e)}")
+                return
+
+            # Validate new filenames before renaming
+            for filename in os.listdir(self.folder):
+                if not os.path.isfile(os.path.join(self.folder, filename)):
+                    continue
+
+                if file_filter and not re.search(file_filter, filename):
+                    continue
+
+                if re.search(pattern, filename):
+                    try:
+                        # Create a test match to validate the transform
+                        match = re.search(pattern, filename)
+                        groups = {f"g{i+1}": group for i, group in enumerate(match.groups())}
+                        groups["g0"] = match.group(0)
+                        new_name = eval(transform_expr, {"__builtins__": {}}, groups)
+                        if not ulti.validate_filename(str(new_name)):
+                            QMessageBox.warning(self, "Invalid Filename",
+                                              f"The new filename '{new_name}' is invalid. Please check your input.")
+                            return
+                    except Exception as e:
+                        QMessageBox.warning(self, "Invalid Transform",
+                                          f"Error in transform expression: {str(e)}")
+                        return
+
+            results = custom_transform(self.folder, pattern, transform_expr, file_filter)
             self.update_file_list()
             logger.info("Custom transform operation completed")
+        except PermissionError:
+            logger.error("Permission denied while renaming files")
+            QMessageBox.critical(self, "Error", "Permission denied. Some files may be in use or locked.")
         except Exception as e:
             logger.error(f"Error in custom transform: {str(e)}")
+            QMessageBox.critical(self, "Error", f"Error during operation:\n{str(e)}")
 
     def show_help(self):
         """Show the help dialog."""
@@ -349,31 +453,6 @@ class RenameToolTab(QWidget):
     def __del__(self):
         """Cleanup when object is deleted."""
         try:
-            # Clean up configuration
-            self.config = None
-
             logger.info("Rename Tools object cleaned up successfully")
         except Exception as e:
             logger.error(f"Error during object cleanup: {str(e)}")
-
-# def main():
-#     app = QApplication(sys.argv)
-#     window = FileRenamerApp()
-#     window.show()
-#     sys.exit(app.exec())
-
-# if __name__ == "__main__":
-#     main()
-
-# Example usage:
-# 1. Add prefix "TEST_" to all files:
-#    python rename_file.py prefix "C:\path\to\folder" --prefix "TEST_"
-#
-# 2. Add postfix "_BACKUP" to all .txt files:
-#    python rename_file.py prefix "C:\path\to\folder" --postfix "_BACKUP" --filter "\.txt$"
-#
-# 3. Replace "old" with "new" in all filenames:
-#    python rename_file.py exact "C:\path\to\folder" "old" "new"
-#
-# 4. Replace numbers in parentheses with incremented value using regex:
-#    python rename_file.py regex "C:\path\to\folder" "\((\d+)\)" "($1_new)"

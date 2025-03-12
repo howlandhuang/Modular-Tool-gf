@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>533</width>
-    <height>306</height>
+    <width>621</width>
+    <height>264</height>
    </rect>
   </property>
   <property name="minimumSize">
@@ -88,14 +88,23 @@
     </layout>
    </item>
    <item>
-    <widget class="QSplitter" name="splitter">
-     <property name="orientation">
-      <enum>Qt::Horizontal</enum>
-     </property>
-     <widget class="QWidget" name="file_list_container">
+    <layout class="QHBoxLayout" name="horizontalLayout_8">
+     <item>
       <layout class="QVBoxLayout" name="file_list_layout">
        <item>
         <widget class="QLabel" name="file_list_label">
+         <property name="minimumSize">
+          <size>
+           <width>0</width>
+           <height>25</height>
+          </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>100</width>
+           <height>30</height>
+          </size>
+         </property>
          <property name="text">
           <string>Files in folder:</string>
          </property>
@@ -105,18 +114,33 @@
         <widget class="QListWidget" name="file_list">
          <property name="minimumSize">
           <size>
-           <width>100</width>
+           <width>200</width>
            <height>0</height>
+          </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>500</width>
+           <height>300</height>
           </size>
          </property>
         </widget>
        </item>
       </layout>
-     </widget>
-     <widget class="QWidget" name="operations_container">
+     </item>
+     <item>
       <layout class="QVBoxLayout" name="operations_layout">
+       <property name="leftMargin">
+        <number>0</number>
+       </property>
        <item>
         <widget class="QLabel" name="operations_label">
+         <property name="maximumSize">
+          <size>
+           <width>400</width>
+           <height>16777215</height>
+          </size>
+         </property>
          <property name="text">
           <string>Rename Operations:</string>
          </property>
@@ -124,6 +148,9 @@
        </item>
        <item>
         <widget class="QTabWidget" name="tab_widget">
+         <property name="tabPosition">
+          <enum>QTabWidget::North</enum>
+         </property>
          <property name="currentIndex">
           <number>1</number>
          </property>
@@ -140,7 +167,26 @@
             </widget>
            </item>
            <item row="0" column="1">
-            <widget class="QLineEdit" name="prefix_edit"/>
+            <widget class="QLineEdit" name="prefix_edit">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="minimumSize">
+              <size>
+               <width>250</width>
+               <height>0</height>
+              </size>
+             </property>
+             <property name="maximumSize">
+              <size>
+               <width>250</width>
+               <height>30</height>
+              </size>
+             </property>
+            </widget>
            </item>
            <item row="1" column="0">
             <widget class="QLabel" name="postfix_label">
@@ -150,10 +196,29 @@
             </widget>
            </item>
            <item row="1" column="1">
-            <widget class="QLineEdit" name="postfix_edit"/>
+            <widget class="QLineEdit" name="postfix_edit">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="maximumSize">
+              <size>
+               <width>250</width>
+               <height>30</height>
+              </size>
+             </property>
+            </widget>
            </item>
            <item row="2" column="1">
             <widget class="QPushButton" name="prefix_button">
+             <property name="maximumSize">
+              <size>
+               <width>250</width>
+               <height>30</height>
+              </size>
+             </property>
              <property name="text">
               <string>Add Prefix/Postfix</string>
              </property>
@@ -168,6 +233,15 @@
           <layout class="QVBoxLayout" name="regex_layout">
            <item>
             <layout class="QFormLayout" name="regex_form_layout">
+             <property name="sizeConstraint">
+              <enum>QLayout::SetDefaultConstraint</enum>
+             </property>
+             <property name="fieldGrowthPolicy">
+              <enum>QFormLayout::AllNonFixedFieldsGrow</enum>
+             </property>
+             <property name="formAlignment">
+              <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
+             </property>
              <item row="0" column="0">
               <widget class="QLabel" name="pattern_label">
                <property name="text">
@@ -177,16 +251,16 @@
              </item>
              <item row="0" column="1">
               <widget class="QLineEdit" name="pattern_edit">
-               <property name="sizePolicy">
-                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-                 <horstretch>0</horstretch>
-                 <verstretch>0</verstretch>
-                </sizepolicy>
-               </property>
                <property name="minimumSize">
                 <size>
-                 <width>280</width>
+                 <width>250</width>
                  <height>0</height>
+                </size>
+               </property>
+               <property name="maximumSize">
+                <size>
+                 <width>250</width>
+                 <height>30</height>
                 </size>
                </property>
                <property name="placeholderText">
@@ -203,6 +277,12 @@
              </item>
              <item row="1" column="1">
               <widget class="QLineEdit" name="replacement_edit">
+               <property name="maximumSize">
+                <size>
+                 <width>250</width>
+                 <height>30</height>
+                </size>
+               </property>
                <property name="placeholderText">
                 <string>Enter replacement text or pattern like [\1]</string>
                </property>
@@ -217,6 +297,12 @@
              </item>
              <item row="2" column="1">
               <widget class="QLineEdit" name="transform_edit">
+               <property name="maximumSize">
+                <size>
+                 <width>250</width>
+                 <height>30</height>
+                </size>
+               </property>
                <property name="placeholderText">
                 <string>e.g. f'prefix_{g1}_suffix' or 'g1.upper()'</string>
                </property>
@@ -226,6 +312,9 @@
            </item>
            <item>
             <layout class="QHBoxLayout" name="button_layout">
+             <property name="spacing">
+              <number>0</number>
+             </property>
              <item>
               <widget class="QPushButton" name="regex_button">
                <property name="text">
@@ -270,8 +359,8 @@ background-color: rgb(255, 244, 179);</string>
         </widget>
        </item>
       </layout>
-     </widget>
-    </widget>
+     </item>
+    </layout>
    </item>
   </layout>
  </widget>
