@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>621</width>
-    <height>264</height>
+    <width>647</width>
+    <height>282</height>
    </rect>
   </property>
   <property name="minimumSize">
@@ -242,14 +242,66 @@
              <property name="formAlignment">
               <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
              </property>
-             <item row="0" column="0">
+             <item row="1" column="0">
               <widget class="QLabel" name="pattern_label">
                <property name="text">
                 <string>Find:</string>
                </property>
               </widget>
              </item>
-             <item row="0" column="1">
+             <item row="2" column="0">
+              <widget class="QLabel" name="replacement_label">
+               <property name="text">
+                <string>Replace With:</string>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="1">
+              <widget class="QLineEdit" name="replacement_edit">
+               <property name="minimumSize">
+                <size>
+                 <width>250</width>
+                 <height>0</height>
+                </size>
+               </property>
+               <property name="maximumSize">
+                <size>
+                 <width>1000</width>
+                 <height>30</height>
+                </size>
+               </property>
+               <property name="placeholderText">
+                <string>Enter replacement text or pattern like [\1]</string>
+               </property>
+              </widget>
+             </item>
+             <item row="3" column="0">
+              <widget class="QLabel" name="transform_label">
+               <property name="text">
+                <string>Custom Transform:</string>
+               </property>
+              </widget>
+             </item>
+             <item row="3" column="1">
+              <widget class="QLineEdit" name="transform_edit">
+               <property name="minimumSize">
+                <size>
+                 <width>250</width>
+                 <height>0</height>
+                </size>
+               </property>
+               <property name="maximumSize">
+                <size>
+                 <width>1000</width>
+                 <height>30</height>
+                </size>
+               </property>
+               <property name="placeholderText">
+                <string>e.g. f'prefix_{g1}_suffix' or 'g1.upper()'</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="1">
               <widget class="QLineEdit" name="pattern_edit">
                <property name="minimumSize">
                 <size>
@@ -259,7 +311,7 @@
                </property>
                <property name="maximumSize">
                 <size>
-                 <width>250</width>
+                 <width>1000</width>
                  <height>30</height>
                 </size>
                </property>
@@ -268,43 +320,10 @@
                </property>
               </widget>
              </item>
-             <item row="1" column="0">
-              <widget class="QLabel" name="replacement_label">
+             <item row="0" column="1">
+              <widget class="QCheckBox" name="regex_checkbox">
                <property name="text">
-                <string>Replace With:</string>
-               </property>
-              </widget>
-             </item>
-             <item row="1" column="1">
-              <widget class="QLineEdit" name="replacement_edit">
-               <property name="maximumSize">
-                <size>
-                 <width>250</width>
-                 <height>30</height>
-                </size>
-               </property>
-               <property name="placeholderText">
-                <string>Enter replacement text or pattern like [\1]</string>
-               </property>
-              </widget>
-             </item>
-             <item row="2" column="0">
-              <widget class="QLabel" name="transform_label">
-               <property name="text">
-                <string>Custom Transform:</string>
-               </property>
-              </widget>
-             </item>
-             <item row="2" column="1">
-              <widget class="QLineEdit" name="transform_edit">
-               <property name="maximumSize">
-                <size>
-                 <width>250</width>
-                 <height>30</height>
-                </size>
-               </property>
-               <property name="placeholderText">
-                <string>e.g. f'prefix_{g1}_suffix' or 'g1.upper()'</string>
+                <string>Treat as regex</string>
                </property>
               </widget>
              </item>

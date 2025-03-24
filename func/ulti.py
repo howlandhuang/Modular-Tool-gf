@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from logging.handlers import QueueHandler, QueueListener
 from queue import Queue
 from PyQt6.QtWidgets import QWidget, QInputDialog, QMessageBox
-from typing import Any, Callable, Optional, Union, TypeVar, ParamSpec
+from typing import Any, Callable, Optional
 from functools import wraps
 
 # Global log queue for multiprocessing
@@ -276,6 +276,7 @@ class ProcessingConfig:
     filter_outliers_flag: bool
     filter_threshold: int
     filter_tolerance: float
+    auto_size: bool
 
 # Validation patterns for input validation
 INVALID_PATH_CHARS = r'[<>:"|?*\x00-\x1F]'

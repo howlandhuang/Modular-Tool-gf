@@ -9,13 +9,11 @@ import pandas as pd
 import numpy as np
 from concurrent.futures import ProcessPoolExecutor
 from collections import defaultdict
-from logging.handlers import QueueHandler
 from multiprocessing import freeze_support
 from func.ulti import (
     lr, ProcessingConfig,
     validate_wafer_id, get_user_input, send_warning, validate_width_length
 )
-from PyQt6.QtWidgets import QInputDialog, QWidget
 
 # Enable PyDev debugging
 os.environ['PYDEVD_DISABLE_FILE_VALIDATION'] = '1'
@@ -605,7 +603,7 @@ class DataProcessor:
                     [f"{col}_Sid/id^2" for col in die_prefix] +
                     [f"{col}_Svg" for col in die_prefix] +
                     [f"{col}_Sid*f" for col in die_prefix] +
-                    [f"{col}_Svg_norm" for col in die_prefix] + 
+                    [f"{col}_Svg_norm" for col in die_prefix] +
                     ['Sid_med', 'Sid_min', 'Sid_max',
                      'Sid/id^2_med', 'Sid/id^2_min', 'Sid/id^2_max',
                      'Svg_med', 'Svg_min', 'Svg_max',
@@ -689,16 +687,23 @@ class DataProcessor:
 
             try:
                 for idx, device in enumerate(self.device_list):
-                    width = get_user_input(
-                        f'{device} - Width Input',
-                        f'{device}\nPlease input device width:',
-                        validate_width_length
-                    )
-                    length = get_user_input(
-                        f'{device} - Length Input',
-                        f'{device}\nPlease input device length:',
-                        validate_width_length
-                    )
+                    # If auto_size is False, get width and length from user input
+                    if not self.config.auto_size:
+                        width = get_user_input(
+                            f'{device} - Width Input',
+                            f'{device}\nPlease input device width:',
+                            validate_width_length
+                        )
+                        length = get_user_input(
+                            f'{device} - Length Input',
+                            f'{device}\nPlease input device length:',
+                            validate_width_length
+                        )
+                    else:
+                        # Extract width and length from device name
+                        width = float(re.search(r'W\d+\.?\d*', device).group(0).replace('W', ''))
+                        length = float(re.search(r'L\d+\.?\d*', device).group(0).replace('L', ''))
+
                     self.device_list[idx] = (device, width, length)
 
             except Exception as e:

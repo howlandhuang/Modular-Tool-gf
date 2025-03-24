@@ -329,22 +329,23 @@ class RenameToolTab(QWidget):
             pattern = self.pattern_edit.text()
             replacement = self.replacement_edit.text()
             file_filter = self.filter_edit.text() if self.filter_edit.text() else None
+            is_regex = self.regex_checkbox.isChecked()
 
             if not pattern:
                 logger.warning("No pattern provided")
                 QMessageBox.warning(self, "Invalid Input", "Please provide a pattern to match.")
                 return
 
-            # Validate regex pattern
-            try:
-                re.compile(pattern)
-            except re.error as e:
-                logger.warning(f"Invalid regex pattern: {str(e)}")
-                QMessageBox.warning(self, "Invalid Pattern", f"Invalid regex pattern: {str(e)}")
-                return
-
-            # Escape pattern if it doesn't contain any regex special characters
-            if not any(c in pattern for c in r'.^$*+?{}[]\|()'):
+            # Validate regex pattern if regex mode is enabled
+            if is_regex:
+                try:
+                    re.compile(pattern)
+                except re.error as e:
+                    logger.warning(f"Invalid regex pattern: {str(e)}")
+                    QMessageBox.warning(self, "Invalid Pattern", f"Invalid regex pattern: {str(e)}")
+                    return
+            else:
+                # Escape pattern if not in regex mode
                 pattern = re.escape(pattern)
 
             # Validate new filenames before renaming

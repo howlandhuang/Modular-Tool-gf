@@ -96,7 +96,8 @@ class NoiseToolTab(QWidget):
                 debug_flag = False,
                 filter_outliers_flag = False,
                 filter_threshold = 0.1,
-                filter_tolerance = 1.0
+                filter_tolerance = 1.0,
+                auto_size = False
             )
             logger.debug("Configuration initialized")
 
@@ -266,7 +267,7 @@ class NoiseToolTab(QWidget):
             logger.debug("Configuring extraction parameters")
             # Get configuration from UI
             self.uni_config.debug_flag = self.debug_mode_box.isChecked()
-
+            self.uni_config.auto_size = self.auto_size_box.isChecked()
             # Validate input parameters
             logger.debug("Validating input parameters")
             try:

@@ -12,8 +12,7 @@ import time
 from pathlib import Path
 from multiprocessing import freeze_support
 from func.ulti import setup_logger
-# from func.CsvTool.CsvToolTab import CSVToolTab
-
+from func.CsvTool.CsvToolTab import CSVToolTab
 from func.NoiseTool.NoiseToolTab import NoiseToolTab
 from func.RenameTool.RenameToolTab import RenameToolTab
 # Initialize module logger
@@ -46,7 +45,7 @@ class ModularTools(QtWidgets.QWidget):
         logger.info("Initializing tab modules")
 
         # Create tab instances
-        # self.csv_tab = CSVToolTab()
+        self.csv_tab = CSVToolTab()
         self.noise_tab = NoiseToolTab()
         self.rename_tab = RenameToolTab()
 
@@ -54,7 +53,7 @@ class ModularTools(QtWidgets.QWidget):
         self.tabWidget.clear()
 
         # Add tabs to the tab widget
-        # self.tabWidget.addTab(self.csv_tab, "CSV Tool")
+        self.tabWidget.addTab(self.csv_tab, "CSV Tool")
         self.tabWidget.addTab(self.noise_tab, "Noise Tool")
         self.tabWidget.addTab(self.rename_tab, "Rename Tool")
 
@@ -70,6 +69,9 @@ class ModularTools(QtWidgets.QWidget):
 
             if hasattr(self, 'noise_tab'):
                 self.noise_tab = None
+
+            if hasattr(self, 'rename_tab'):
+                self.rename_tab = None
 
             # Clear tab widget
             self.tabWidget.clear()
