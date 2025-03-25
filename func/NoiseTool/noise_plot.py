@@ -109,8 +109,8 @@ class PlotProcessor:
             logger.debug(f"Extracted data portion, new shape: {df.shape}")
 
             # Parse file name for metadata
-            device_name, wafer_id, bias_id = split_wafer_file_name(os.path.basename(single_file))
-            logger.debug(f"Extracted metadata - device: {device_name}, wafer: {wafer_id}, bias: {bias_id}")
+            device_name, lot_id, wafer_id, bias_id = split_wafer_file_name(os.path.basename(single_file))
+            logger.debug(f"Extracted metadata - device: {device_name}, lot: {lot_id}, wafer: {wafer_id}, bias: {bias_id}")
 
             # Apply outlier filtering if enabled
             if self.config.filter_outliers_flag:
@@ -118,7 +118,7 @@ class PlotProcessor:
                 df = remove_outliers(df, self.config.filter_threshold, self.config.filter_tolerance)
                 logger.debug("Outlier filtering completed")
 
-            self.dataframes.append((device_name, wafer_id, bias_id, df))
+            self.dataframes.append((device_name, lot_id, wafer_id, bias_id, df))
             logger.debug("File processing completed")
         except Exception as e:
             logger.error(f"Error processing file {single_file}: {str(e)}")
@@ -161,11 +161,11 @@ class PlotProcessor:
             logger.debug("Figure created")
 
             # Plot data for each file
-            for idx, (device_name, wafer_id, bias_id, df) in enumerate(self.dataframes):
-                logger.debug(f"Plotting data for {device_name} - {wafer_id} - {bias_id}")
+            for idx, (device_name, lot_id, wafer_id, bias_id, df) in enumerate(self.dataframes):
+                logger.debug(f"Plotting data for {device_name} - {lot_id} - {wafer_id} - {bias_id}")
 
                 # Format label on two lines to save horizontal space
-                label_base = f"{device_name}, {wafer_id}\n{bias_id}"
+                label_base = f"{device_name}, {lot_id}\n{wafer_id}, {bias_id}"
 
                 if fig_type == 0:
                     # Plot individual die data with reduced opacity
@@ -244,7 +244,7 @@ class PlotProcessor:
 
                 # Generate output filename
                 device_info = os.path.basename(file_path)
-                device_name, wafer_id, bias_id = split_wafer_file_name(device_info)
+                device_name, lot_id, wafer_id, bias_id = split_wafer_file_name(device_info)
                 output_file = os.path.join(
                     self.config.output_path,
                     f'{os.path.basename(file_path[:-5])}_filtered_threshold{self.config.filter_threshold}_tolerance{self.config.filter_tolerance}.xlsx'

@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from logging.handlers import QueueHandler, QueueListener
 from queue import Queue
 from PyQt6.QtWidgets import QWidget, QInputDialog, QMessageBox
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, List
 from functools import wraps
 
 # Global log queue for multiprocessing
@@ -124,16 +124,17 @@ def split_wafer_file_name(input_string: str):
     """
     logger.debug(f"Parsing wafer file name: {input_string}")
     try:
-        pattern = r'(.+)_(W#\w+)_(Bias\d+)'
+        pattern = r'(.+)_(\d[a-zA-Z]{3}\d{5}(?:_[Rr][Tt])?)_(W#\w+)_(Bias\d+)'
         match = re.match(pattern, input_string)
         if not match:
             logger.error(f"Invalid file name format: {input_string}")
             raise ValueError("The input string format does not match the expected pattern.")
         name = match.group(1)
-        wafer_id = match.group(2)
-        bias = match.group(3)
-        logger.debug(f"Successfully parsed: name={name}, wafer_id={wafer_id}, bias={bias}")
-        return name, wafer_id, bias
+        lot_id = match.group(2)
+        wafer_id = match.group(3)
+        bias = match.group(4)
+        logger.debug(f"Successfully parsed: name={name}, lot_id={lot_id}, wafer_id={wafer_id}, bias={bias}")
+        return name, lot_id, wafer_id, bias
     except Exception as e:
         logger.error(f"Error parsing wafer file name: {str(e)}")
         raise
@@ -232,8 +233,8 @@ def check_column_match(dataframes, noise_type=None, fig_type=None, is_stacking=F
     freq = None
     die_num = None
 
-    for device_name, wafer_id, bias_id, df in dataframes:
-        logger.debug(f"Checking file: {device_name} - {wafer_id} - {bias_id}")
+    for device_name, lot_id, wafer_id, bias_id, df in dataframes:
+        logger.debug(f"Checking file: {device_name} - {lot_id} - {wafer_id} - {bias_id}")
 
         if not is_stacking:
             # Noise plot specific checks
@@ -263,6 +264,19 @@ def check_column_match(dataframes, noise_type=None, fig_type=None, is_stacking=F
     logger.info("Data consistency check passed")
     return (freq, die_num) if not is_stacking else None
 
+
+@dataclass
+class CsvProcessingConfig:
+    """Configuration class for CSV data processing parameters."""
+    input_file_path: str
+    output_file_path: str
+    magnetic_fields: List[float] = None
+
+    def __post_init__(self):
+        """Initialize default values after initialization."""
+        if self.magnetic_fields is None:
+            self.magnetic_fields = [-0.2, -0.1, -0.05, 0, 0.05, 0.1, 0.2]
+
 @dataclass
 class ProcessingConfig:
     """Configuration class for data processing parameters."""
@@ -280,11 +294,11 @@ class ProcessingConfig:
 
 # Validation patterns for input validation
 INVALID_PATH_CHARS = r'[<>:"|?*\x00-\x1F]'
-SINGLE_FREQ_PATTERN = r'^\s*(\d+\.?\d*)\s*$'
-FREQ_LIST_PATTERN = r'^\s*\d+\.?\d*\s*(?:,\s*\d+\.?\d*\s*)*$'
-LOT_ID_PATTERN = r'^\d[a-zA-Z]{3}\d{5}(_RT)?'
-WAFER_ID_PATTERN = r'^[wW]\d{1,2}$'
-DEVICE_WIDTH_LENGTH_PATTERN = r'^\s*(\d+\.?\d*)\s*$'
+SINGLE_FREQ_PATTERN = r'\s*(\d+\.?\d*)\s*'
+FREQ_LIST_PATTERN = r'\s*\d+\.?\d*\s*(?:,\s*\d+\.?\d*\s*)*'
+LOT_ID_PATTERN = r'\d[a-zA-Z]{3}\d{5}(?:_[Rr][Tt])?'
+WAFER_ID_PATTERN = r'[wW]\d{1,2}'
+DEVICE_WIDTH_LENGTH_PATTERN = r'\s*(\d+\.?\d*)\s*'
 RESERVED_NAMES = {
     "CON", "PRN", "AUX", "NUL",
     "COM1", "COM2", "COM3", "COM4", "COM5",

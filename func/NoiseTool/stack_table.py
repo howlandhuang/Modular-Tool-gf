@@ -27,8 +27,7 @@ class StackProcessor:
         """
         logger.info("Initializing StackProcessor")
         self.config = config
-        # self.type_of_noise = 4
-        # logger.debug(f"Stack processor initialized with {self.type_of_noise} noise types")
+
 
     def _stacking_noise_table(self, save_file):
         """
@@ -43,14 +42,15 @@ class StackProcessor:
 
         try:
             # Process each input file
-            for device_name, wafer_id, bias_id, df in self.dataframes:
-                logger.debug(f"Processing file: {device_name} - {wafer_id} - {bias_id}")
+            for device_name, lot_id, wafer_id, bias_id, df in self.dataframes:
+                logger.debug(f"Processing file: {device_name} - {lot_id} - {wafer_id} - {bias_id}")
 
                 # Add metadata columns
                 logger.debug("Adding metadata columns")
                 df.insert(0, 'Wafer', [f"{wafer_id}"] * df.shape[0])
                 df.insert(0, 'Device', [f"{device_name}"] * df.shape[0])
-                columns_to_remove = ['Wafer', 'Device']
+                df.insert(0, 'Lot', [f"{lot_id}"] * df.shape[0])
+                columns_to_remove = ['Wafer', 'Device', 'Lot']
                 df.loc[self.config.basic_info_line_num-1, columns_to_remove] = np.nan
 
                 # Stack header portion
@@ -125,10 +125,10 @@ class StackProcessor:
                     logger.debug(f"Successfully read file with shape: {df.shape}")
 
                     # Extract metadata from filename
-                    device_name, wafer_id, bias_id = split_wafer_file_name(os.path.basename(file_path))
-                    logger.debug(f"Extracted metadata - device: {device_name}, wafer: {wafer_id}, bias: {bias_id}")
+                    device_name, lot_id, wafer_id, bias_id = split_wafer_file_name(os.path.basename(file_path))
+                    logger.debug(f"Extracted metadata - device: {device_name}, lot: {lot_id}, wafer: {wafer_id}, bias: {bias_id}")
 
-                    self.dataframes.append((device_name, wafer_id, bias_id, df))
+                    self.dataframes.append((device_name, lot_id, wafer_id, bias_id, df))
                 except Exception as e:
                     logger.error(f"Error reading file {file_path}: {str(e)}")
                     raise IOError(f"Failed to read input file: {file_path}") from e
@@ -174,13 +174,14 @@ class StackProcessor:
                     logger.debug(f"Successfully read prediction file with shape: {df.shape}")
 
                     # Extract metadata from filename
-                    if match := re.search(r"0_Prediction_(.*?)_W#(\d+)", os.path.basename(file_path)):
-                        device_name = match.group(1)
-                        wafer_num = match.group(2)
-                        logger.debug(f"Extracted metadata - device: {device_name}, wafer: {wafer_num}")
+                    if match := re.match(r'0_Prediction_(.+)_(\d[a-zA-Z]{3}\d{5}(?:_[Rr][Tt])?)_(W#\w+)', os.path.basename(file_path)):
+                        name = match.group(1)
+                        lot_id = match.group(2)
+                        wafer_id = match.group(3)
+                        logger.debug(f"Extracted metadata - device: {name}, lot: {lot_id}, wafer: {wafer_id}")
                     else:
-                        logger.warning(f"Could not extract metadata from filename: {file_path}")
-                        continue
+                        logger.error(f"Invalid file name format: {os.path.basename(file_path)}")
+                        raise ValueError("The input string format does not match the expected pattern.")
 
                     # Process each bias level
                     for bias in df.columns.levels[0]:
@@ -192,16 +193,18 @@ class StackProcessor:
                             tmp.insert(0, 'Frequency', [float(freq)] * len(df.index.to_list()))
                             tmp.insert(1, 'Bias', [bias] * len(df.index.to_list()))
                             tmp['Site'] = df.index.to_list()
-                            tmp['wafer'] = f'W{wafer_num}'
-                            tmp['device'] = device_name
-
+                            tmp['wafer'] = f'W{wafer_id}'
+                            tmp['device'] = name
+                            tmp['lot'] = lot_id
                             # Reorder columns for consistency
-                            tmp = tmp.set_index('device')
+                            tmp = tmp.set_index('lot')
                             cols = tmp.columns.tolist()
                             cols.remove('Site')
                             cols.remove('wafer')
+                            cols.remove('device')
                             cols.insert(0, 'Site')
                             cols.insert(0, 'wafer')
+                            cols.insert(0, 'device')
                             tmp = tmp[cols]
 
                             # Add to result dataframe

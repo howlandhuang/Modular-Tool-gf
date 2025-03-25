@@ -12,7 +12,8 @@ from collections import defaultdict
 from multiprocessing import freeze_support
 from func.ulti import (
     lr, ProcessingConfig,
-    validate_wafer_id, get_user_input, send_warning, validate_width_length
+    validate_wafer_id, get_user_input, validate_lot_id, validate_width_length,
+    LOT_ID_PATTERN
 )
 
 # Enable PyDev debugging
@@ -73,23 +74,31 @@ class DataProcessor:
                     'Please input wafer ID:',
                     validate_wafer_id
                 )
-                wafer_id = wafer_id.replace('w', '').replace('W', '')
+                # if the get_user_input is failed, wafer_id falls back to 'UNKNOWN' to make sure the program can run
+                if wafer_id is None:
+                    wafer_id = 'UNKNOWN'
+                else:
+                    # we add 'W' in the final output('W#xxx') so here we only need the number
+                    wafer_id = wafer_id.replace('w', '').replace('W', '')
 
-            if match := re.match(r'^\d[a-zA-Z]{3}\d{5}(_RT)?$', parts[-3]):
-                lot_id = match.group(0)
+            # Find all matches of lot ID pattern in path and take the last one
+            # defined in func/ulti.py
+            matches = re.finditer(LOT_ID_PATTERN, str(self.config.base_path))
+            matches_list = list(matches)
+            if matches_list:
+                lot_id = matches_list[-1].group(0)  # Take the last match
                 logger.info(f"Found lot ID from path structure: {lot_id}")
             else:
                 logger.warning("Path structure does not match expected format")
 
-                '''
-                ##Temporary disable user input for lot ID because we don't use it for now##
-                lot_id, _ = get_user_input(
+                lot_id = get_user_input(
                     'Lot ID Input',
                     'Please input lot ID:',
                     validate_lot_id
                 )
-                '''
-                lot_id = 'default(Update extract_noise)'
+                # if the get_user_input is failed, lot_id falls back to 'UNKNOWN' to make sure the program can run
+                if lot_id is None:
+                    lot_id = 'UNKNOWN'
 
             logger.info(f"Extracted wafer info - Wafer ID: {wafer_id}, Lot ID: {lot_id}")
             return (wafer_id, lot_id)
@@ -97,7 +106,7 @@ class DataProcessor:
         except Exception as e:
             logger.error(f"Error extracting wafer info: {str(e)}")
             logger.warning("Returning default values due to error")
-            return ('UNKNOWN', None)
+            return ('UNKNOWN', 'UNKNOWN')
 
     def scan_structure(self):
         """
@@ -144,7 +153,7 @@ class DataProcessor:
 
         try:
             # Parse number of frequency points
-            # [Measured Data] (Vrd, Ird, Vg, Ig, Vs, Is, Vb, Ib, Beta, Gm, Gd, tRd, tRb, fRd, fRb, Amp, Gain, Vn_In, Sampling Noise...)
+            # In raw data: [Measured Data] (Vrd, Ird, Vg, Ig, Vs, Is, Vb, Ib, Beta, Gm, Gd, tRd, tRb, fRd, fRb, Amp, Gain, Vn_In, Sampling Noise...)
             keywords = ['number', 'header']
             found_keywords = set()
             for idx, line in enumerate(content):
@@ -173,7 +182,7 @@ class DataProcessor:
         try:
             # Extract bias data
             bias_list = []
-            for i in range(1, 21):
+            for i in range(1, 101): # Why some files have more than 20 bias conditions? :-(
                 current_line = content[header_line_index + i].strip().split(",")
                 if current_line[0][0] == "[":
                     break
@@ -190,6 +199,7 @@ class DataProcessor:
                 current_line = content[header_line_index + 1 + i + j].strip().split(",")
                 noise_data.append([float(m) for m in current_line])
             logger.debug(f"Extracted noise data with {len(noise_data)} points")
+
         except Exception as e:
             logger.error(f"Error extracting noise data: {str(e)}")
             raise ValueError(f"Error capturing noise-frequency table --> {e}")
@@ -493,11 +503,6 @@ class DataProcessor:
                 df.to_excel(writer, sheet_name='Prediction')
                 workbook = writer.book
                 worksheet = writer.sheets['Prediction']
-                header_format = workbook.add_format({
-                    'bold': False,
-                    'align': 'center',
-                    'border': 0
-                })
 
                 # Adjust column widths
                 for col_num in range(len(df.columns.levels[0]) * (len(df.columns.levels[1]) * (len(df.columns.levels[2]) - 4 ) + 4)):
@@ -629,7 +634,7 @@ class DataProcessor:
                 df_noise_list_ori = pd.concat([df_part1, df_part2], axis=0)
                 output_file = os.path.join(
                     self.config.output_path,
-                    f"{device_name[:-4]}_W#{self.wafer_id}_{sheet_name}.xlsx"
+                    f"{device_name[:-4]}_{self.lot_id}_W#{self.wafer_id}_{sheet_name}.xlsx"
                 )
                 logger.info(f"Saving processed data to {output_file}")
 
@@ -656,7 +661,7 @@ class DataProcessor:
             )
             output_file = os.path.join(
                 self.config.output_path,
-                f"0_Prediction_{device_name[:-4]}_W#{self.wafer_id}.xlsx"
+                f"0_Prediction_{device_name[:-4]}_{self.lot_id}_W#{self.wafer_id}.xlsx"
             )
             self.prediction_export(output_file, prediction_result)
 
@@ -699,16 +704,21 @@ class DataProcessor:
                             f'{device}\nPlease input device length:',
                             validate_width_length
                         )
+                        if width is None or length is None:
+                            logger.warning(f"Skipping device {device} due to invalid width or length")
+                            raise ValueError("Must input valid width and length")
                     else:
                         # Extract width and length from device name
-                        width = float(re.search(r'W\d+\.?\d*', device).group(0).replace('W', ''))
-                        length = float(re.search(r'L\d+\.?\d*', device).group(0).replace('L', ''))
+                        width = re.search(r'W\d+\.?\d*', device).group(0).replace('W', '')
+                        length = re.search(r'L\d+\.?\d*', device).group(0).replace('L', '')
 
+                    width = float(width)
+                    length = float(length)
                     self.device_list[idx] = (device, width, length)
 
             except Exception as e:
                 logger.error(f"Error extracting wafer width and length: {str(e)}")
-                raise
+                raise ValueError("Fail to extract width and length")
 
             # Process devices in parallel
             logger.info("Starting parallel device processing")
