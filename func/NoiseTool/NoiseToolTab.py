@@ -257,6 +257,26 @@ class NoiseToolTab(QWidget):
         logger.debug(f"Path validation successful in {'debug' if self.debug_mode_box.isChecked() else 'normal'} mode")
         return True
 
+    def update_noise_types(self):
+        """Update noise types based on UI selections."""
+        self.noise_types = []
+        if self.sid_box.isChecked():
+            self.noise_types.append('Sid')
+        if self.sid_id2_box.isChecked():
+            self.noise_types.append('Sid/id^2')
+        if self.svg_box.isChecked():
+            self.noise_types.append('Svg')
+        if self.sid_f_box.isChecked():
+            self.noise_types.append('Sid*f')
+        if self.svg_norm_box.isChecked():
+            self.noise_types.append('Svg_norm')
+
+        logger.debug(f"Selected noise types: {self.noise_types}")
+        if not self.noise_types:
+            logger.warning("No plot types selected")
+            QMessageBox.warning(self, "No Plot Type Selected", "Please select at least one plot type.")
+            return
+
     def execute_raw_data_extraction(self):
         """Execute raw data extraction process."""
         logger.info("Starting raw data extraction")
@@ -349,23 +369,7 @@ class NoiseToolTab(QWidget):
 
         try:
             # Check if at least one plot type is selected
-            noise_types = []
-            if self.sid_box.isChecked():
-                noise_types.append('Sid')
-            if self.sid_id2_box.isChecked():
-                noise_types.append('Sid/id^2')
-            if self.svg_box.isChecked():
-                noise_types.append('Svg')
-            if self.sid_f_box.isChecked():
-                noise_types.append('Sid*f')
-            if self.svg_norm_box.isChecked():
-                noise_types.append('Svg_norm')
-
-            logger.debug(f"Selected noise types: {noise_types}")
-            if not noise_types:
-                logger.warning("No plot types selected")
-                QMessageBox.warning(self, "No Plot Type Selected", "Please select at least one plot type.")
-                return
+            self.update_noise_types()
 
             # Check debug mode and save file name
             if self.debug_mode_box.isChecked():
@@ -404,13 +408,13 @@ class NoiseToolTab(QWidget):
             sender = self.sender()
             logger.info(f"Generating plot from {sender.objectName()}")
             if sender == self.by_site_btn:
-                self.plot_processor.run_plots(noise_types, 0, save_name)
+                self.plot_processor.run_plots(self.noise_types, 0, save_name)
             elif sender == self.med_only_btn:
-                self.plot_processor.run_plots(noise_types, 1, save_name)
+                self.plot_processor.run_plots(self.noise_types, 1, save_name)
             elif sender == self.min_only_btn:
-                self.plot_processor.run_plots(noise_types, 2, save_name)
+                self.plot_processor.run_plots(self.noise_types, 2, save_name)
             elif sender == self.max_only_btn:
-                self.plot_processor.run_plots(noise_types, 3, save_name)
+                self.plot_processor.run_plots(self.noise_types, 3, save_name)
             else:
                 logger.error("Invalid button clicked")
                 raise ValueError("Invalid button clicked")
@@ -427,7 +431,8 @@ class NoiseToolTab(QWidget):
         if not self.check_io_path():
             return
         try:
-            self.plot_processor.save_filtered_result()
+            self.update_noise_types()
+            self.plot_processor.save_filtered_result(self.noise_types)
             logger.info("Filtered results saved successfully")
         except Exception as e:
             logger.error(f"Error saving filtered results: {str(e)}")

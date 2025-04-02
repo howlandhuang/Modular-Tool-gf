@@ -1,0 +1,64 @@
+                    GNU GENERAL PUBLIC LICENSE
+                       Version 3, 29 June 2007
+
+ Copyright (C) 2025 Huang, Haoyang
+
+ This program is free software: you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+ the Free Software Foundation, either version 3 of the License, or
+ (at your option) any later version.
+
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU General Public License for more details.
+
+ You should have received a copy of the GNU General Public License
+ along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+The GNU General Public License is a free, copyleft license for
+software and other kinds of works.
+
+------------------------------------------------------------------------
+
+Third-Party Licenses
+-------------------
+
+This project uses several third-party libraries and tools that are licensed under different terms:
+
+1. PyQt6
+   - License: GNU General Public License v3
+   - Source: https://www.riverbankcomputing.com/software/pyqt/license
+
+2. Matplotlib
+   - License: Matplotlib License
+   - Source: https://matplotlib.org/stable/users/license.html
+
+3. Pandas
+   - License: BSD 3-Clause License
+   - Source: https://github.com/pandas-dev/pandas/blob/main/LICENSE
+
+4. NumPy
+   - License: BSD 3-Clause License
+   - Source: https://numpy.org/doc/stable/license.html
+
+5. XlsxWriter
+   - License: BSD 3-Clause License
+   - Source: https://github.com/jmcnamara/XlsxWriter/blob/master/LICENSE
+
+For more information about these licenses and their terms, please refer to their respective sources.
+
+------------------------------------------------------------------------
+
+Contact Information
+------------------
+
+For questions about this software or its licensing, please contact:
+Huang, Haoyang
+Email: howlandhuang@gmail.com
+
+------------------------------------------------------------------------
+
+Note: This software is provided "as is" without warranty of any kind,
+either expressed or implied, including, but not limited to, the implied
+warranties of merchantability and fitness for a particular purpose.

@@ -9,12 +9,13 @@ Includes:
 """
 
 import re, os, logging
+import pandas as pd
 import numpy as np
 from dataclasses import dataclass
 from logging.handlers import QueueHandler, QueueListener
 from queue import Queue
 from PyQt6.QtWidgets import QWidget, QInputDialog, QMessageBox
-from typing import Any, Callable, Optional, List
+from typing import Any, Callable, Optional
 from functools import wraps
 
 # Global log queue for multiprocessing
@@ -109,7 +110,7 @@ def lr(new_x: list, new_y: list):
         logger.error(f"Error in linear regression calculation: {str(e)}")
         raise
 
-def split_wafer_file_name(input_string: str):
+def split_wafer_file_name(input_string: str) -> dict:
     """
     Parse wafer file name into components.
 
@@ -117,29 +118,88 @@ def split_wafer_file_name(input_string: str):
         input_string: File name to parse
 
     Returns:
-        tuple: (name, wafer_id, bias)
+        dict: Dictionary containing parsed components with keys:
+            - 'device_name': Device name/identifier (with meaningful underscores preserved)
+            - 'lot_id': Lot identification number
+            - 'wafer_id': Wafer identification number
+            - 'bias': Bias information
+            - 'width': Device width
+            - 'length': Device length
 
     Raises:
         ValueError: If file name format is invalid
     """
     logger.debug(f"Parsing wafer file name: {input_string}")
     try:
-        pattern = r'(.+)_(\d[a-zA-Z]{3}\d{5}(?:_[Rr][Tt])?)_(W#\w+)_(Bias\d+)'
-        match = re.match(pattern, input_string)
-        if not match:
-            logger.error(f"Invalid file name format: {input_string}")
-            raise ValueError("The input string format does not match the expected pattern.")
-        name = match.group(1)
-        lot_id = match.group(2)
-        wafer_id = match.group(3)
-        bias = match.group(4)
-        logger.debug(f"Successfully parsed: name={name}, lot_id={lot_id}, wafer_id={wafer_id}, bias={bias}")
-        return name, lot_id, wafer_id, bias
+        # Initialize result dictionary
+        result = {
+            'device_name': '',
+            'lot_id': '',
+            'wafer_id': '',
+            'bias_id': '',
+            'width': '',
+            'length': ''
+        }
+
+        # Create a copy of input string for manipulation
+        remaining_string = input_string
+
+        # Search for lot_id (pattern: 1abc12345, 1abc12345_rt, 1abc12345_RT, 1abc12345_re, 1abc12345_retest)
+        # The entire match including postfix will be captured in lot_id
+        lot_pattern = r'(\d[a-z]{3}\d{5}(?:_(?:rt|RT|re|retest))?)'
+        lot_match = re.search(lot_pattern, remaining_string)
+        if lot_match:
+            result['lot_id'] = lot_match.group(1)
+            remaining_string = remaining_string.replace(lot_match.group(1), '')
+            logger.debug(f"Found lot_id: {result['lot_id']}")
+
+        # Search for wafer_id (pattern: W#123)
+        wafer_pattern = r'([Ww]#\d+)'
+        wafer_match = re.search(wafer_pattern, remaining_string)
+        if wafer_match:
+            result['wafer_id'] = wafer_match.group(1)
+            remaining_string = remaining_string.replace(wafer_match.group(1), '')
+            logger.debug(f"Found wafer_id: {result['wafer_id']}")
+
+        # Search for bias (pattern: Bias1)
+        bias_pattern = r'(Bias\d+)'
+        bias_match = re.search(bias_pattern, remaining_string)
+        if bias_match:
+            result['bias_id'] = bias_match.group(1)
+            remaining_string = remaining_string.replace(bias_match.group(1), '')
+            logger.debug(f"Found bias: {result['bias_id']}")
+
+        # Search for width/length (pattern: W1.2L3.4)
+        wl_pattern = r'[wW](\d+\.?\d*)[lL](\d+\.?\d*)'
+        wl_match = re.search(wl_pattern, remaining_string)
+        if wl_match:
+            result['width'] = wl_match.group(1)
+            result['length'] = wl_match.group(2)
+            # Replace the entire width/length pattern
+            remaining_string = re.sub(r'[wW]\d+\.?\d*[lL]\d+\.?\d*', '', remaining_string)
+            logger.debug(f"Found width: {result['width']}, length: {result['length']}")
+
+        # Clean up remaining string and set as device name
+        # 1. Remove file extension if present
+        remaining_string = re.sub(r'\.\w+$', '', remaining_string)
+
+        # 2. Replace multiple underscores with single underscore
+        remaining_string = re.sub(r'_+', '_', remaining_string)
+
+        # 3. Remove trailing/leading underscores and any remaining whitespace
+        remaining_string = remaining_string.rstrip('_').lstrip('_').strip()
+
+        result['device_name'] = remaining_string
+        logger.debug(f"Extracted device name: {result['device_name']}")
+
+        logger.debug(f"Successfully parsed: {result}")
+        return result
+
     except Exception as e:
         logger.error(f"Error parsing wafer file name: {str(e)}")
         raise
 
-def remove_outliers(df, threshold: float, tolerance: float):
+def remove_outliers(df, threshold: float, tolerance: float, noise_type: list):
     """
     Remove outliers from data based on threshold and tolerance.
 
@@ -149,22 +209,22 @@ def remove_outliers(df, threshold: float, tolerance: float):
         tolerance: Tolerance range for values
 
     Returns:
-        DataFrame: Filtered DataFrame with outliers removed
+        tuple: (DataFrame, DataFrame) Filtered DataFrame with outliers removed and removed DataFrame
     """
     logger.info(f"Starting outlier removal with threshold={threshold}, tolerance={tolerance}")
-    if threshold is None:
-        logger.debug("No threshold specified, returning original DataFrame")
+    if threshold is None or tolerance is None:
+        logger.debug("No threshold or tolerance specified, returning original DataFrame")
         return df
 
     try:
+        df_removed = pd.DataFrame()
         df_copy = df.copy()
         total_outliers = 0
 
         # Process each noise type
-        noise_types = ['Sid', 'Sid/id^2', 'Svg', 'Sid*f', 'Svg_norm']
         noise_columns = [col for col in df_copy.columns if col != "Frequency"]
 
-        for condition in noise_types:
+        for condition in noise_type:
             logger.debug(f"Processing noise type: {condition}")
 
             # Get columns for current noise type
@@ -191,6 +251,7 @@ def remove_outliers(df, threshold: float, tolerance: float):
             cols_to_null = nan_ratios[nan_ratios >= threshold].index
             if not cols_to_null.empty:
                 logger.debug(f"Nulling {len(cols_to_null)} columns with too many outliers")
+                df_removed = pd.concat([df_removed, df[cols_to_null]], axis=1)
                 df_copy[cols_to_null] = np.nan
                 df_copy[median_col] = df_copy[type_cols].median(axis=1)
 
@@ -207,62 +268,10 @@ def remove_outliers(df, threshold: float, tolerance: float):
             df_copy[max_col] = df_copy[type_cols].max(axis=1)
 
         logger.info(f"Outlier removal completed. Total outliers removed: {total_outliers}")
-        return df_copy
+        return df_copy, df_removed
     except Exception as e:
         logger.error(f"Error in outlier removal: {str(e)}")
         raise
-
-def check_column_match(dataframes, noise_type=None, fig_type=None, is_stacking=False):
-    """
-    Validate data consistency across dataframes.
-
-    Args:
-        dataframes: List of tuples (device_name, wafer_id, bias_id, df)
-        noise_type: Type of noise data to check (optional, for noise plots)
-        fig_type: Plot type indicator (optional, for noise plots)
-        is_stacking: Boolean indicating if this is for stacking operation
-
-    Returns:
-        tuple: (freq, die_num) for noise plots, None for stacking
-
-    Raises:
-        ValueError: If data inconsistency detected
-    """
-    logger.info("Checking data consistency across dataframes")
-    shape = None
-    freq = None
-    die_num = None
-
-    for device_name, lot_id, wafer_id, bias_id, df in dataframes:
-        logger.debug(f"Checking file: {device_name} - {lot_id} - {wafer_id} - {bias_id}")
-
-        if not is_stacking:
-            # Noise plot specific checks
-            if freq is None:
-                freq = df["Frequency"]
-                logger.debug(f"Reference frequency range set with {len(freq)} points")
-            elif (df["Frequency"] != freq).any():
-                logger.error("Frequency range mismatch detected")
-                raise ValueError("All files must have the same frequency range.")
-
-            # Check column count for noise plots
-            current_columns = len([col for col in df.columns if col.endswith(f"_{noise_type}")])
-            die_num = current_columns
-            current_columns += (3 if fig_type in {2, 3} else 1)
-        else:
-            # Stacking specific checks
-            current_columns = df.shape[1]
-
-        # Common column count consistency check
-        if shape is None:
-            shape = current_columns
-            logger.debug(f"Reference column count set to: {shape}")
-        elif current_columns != shape:
-            logger.error(f"Column count mismatch: expected {shape}, got {current_columns}")
-            raise ValueError("All files must have the same number of columns.")
-
-    logger.info("Data consistency check passed")
-    return (freq, die_num) if not is_stacking else None
 
 
 @dataclass
@@ -270,12 +279,7 @@ class CsvProcessingConfig:
     """Configuration class for CSV data processing parameters."""
     input_file_path: str
     output_file_path: str
-    magnetic_fields: List[float] = None
 
-    def __post_init__(self):
-        """Initialize default values after initialization."""
-        if self.magnetic_fields is None:
-            self.magnetic_fields = [-0.2, -0.1, -0.05, 0, 0.05, 0.1, 0.2]
 
 @dataclass
 class ProcessingConfig:
@@ -509,4 +513,3 @@ def send_warning(message: str):
     """
     logger.warning(message)
     QMessageBox.warning(None, "Warning", message)
-

@@ -7,12 +7,13 @@ import os, re
 import numpy as np
 import pandas as pd
 import logging
-from func.ulti import ProcessingConfig, split_wafer_file_name
+from func.ulti import ProcessingConfig
+from func.NoiseTool.base_processor import BaseProcessor
 
 # Initialize module logger
 logger = logging.getLogger(__name__)
 
-class StackProcessor:
+class StackProcessor(BaseProcessor):
     """
     Processor class for stacking and organizing data tables.
     Handles merging of multiple data files while preserving structure and metadata.
@@ -26,8 +27,8 @@ class StackProcessor:
             config: ProcessingConfig object containing processing parameters
         """
         logger.info("Initializing StackProcessor")
-        self.config = config
-
+        super().__init__(config)
+        logger.debug("Stack processor initialization complete")
 
     def _stacking_noise_table(self, save_file):
         """
@@ -74,23 +75,9 @@ class StackProcessor:
                 result = pd.concat([part1, part2])
                 logger.debug(f"Combined result shape: {result.shape}")
 
-            # Save to Excel with formatting
-            output = os.path.join(self.config.output_path, save_file + '.xlsx')
-            logger.info(f"Saving stacked result to: {output}")
-
-            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-                result.to_excel(writer, sheet_name='Stacked', index=False, header=True)
-                workbook = writer.book
-                worksheet = writer.sheets['Stacked']
-
-                # Apply formatting
-                logger.debug("Applying Excel formatting")
-                header_format = workbook.add_format({'bold': False, 'border': 0})
-                for col_num, value in enumerate(result.columns):
-                    worksheet.write(0, col_num, value, header_format)
-                for col_num in range(result.shape[1]):
-                    worksheet.set_column(col_num + 1, col_num + 1, 13)
-
+            # Save the stacked result using the base class method
+            output_path = os.path.join(self.config.output_path, f"{save_file}.xlsx")
+            self.save_excel_file(result, output_path, sheet_name='Stacked')
             logger.info("File stacking completed successfully")
 
         except Exception as e:
@@ -112,39 +99,15 @@ class StackProcessor:
             IOError: If file operations fail
         """
         logger.info(f"Starting stacking process for {save_file}")
-        self.dataframes = []
 
-        try:
-            # Load all input files
-            logger.info("Loading input files")
-            for file_path in self.config.base_path:
-                logger.debug(f"Reading file: {file_path}")
-                try:
-                    # Read Excel file
-                    df = pd.read_excel(file_path)
-                    logger.debug(f"Successfully read file with shape: {df.shape}")
+        # Load data using base class method
+        if not self.load_data(for_plot=False):
+            logger.error("No data loaded for stacking")
+            raise ValueError("No data available for stacking")
 
-                    # Extract metadata from filename
-                    device_name, lot_id, wafer_id, bias_id = split_wafer_file_name(os.path.basename(file_path))
-                    logger.debug(f"Extracted metadata - device: {device_name}, lot: {lot_id}, wafer: {wafer_id}, bias: {bias_id}")
-
-                    self.dataframes.append((device_name, lot_id, wafer_id, bias_id, df))
-                except Exception as e:
-                    logger.error(f"Error reading file {file_path}: {str(e)}")
-                    raise IOError(f"Failed to read input file: {file_path}") from e
-
-            # Validate data consistency
-            if not self.dataframes:
-                logger.error("No valid data files were loaded")
-                raise ValueError("No valid data files")
-
-            # Process and stack the data
-            self._stacking_noise_table(save_file)
-            logger.info("Stacking process completed successfully")
-
-        except Exception as e:
-            logger.error(f"Stacking process failed: {str(e)}")
-            raise
+        # Process and stack the data
+        self._stacking_noise_table(save_file)
+        logger.info("Stacking process completed successfully")
 
     def run_prediction_table_stacking(self, save_file: str) -> None:
         """
@@ -187,6 +150,7 @@ class StackProcessor:
                     for bias in df.columns.levels[0]:
                         # Get all columns for this bias
                         params = df[bias]['Parameters']
+
                         for freq in [i for i in df.columns.levels[1] if i != 'Parameters']:
                             # Combine parameters and frequency data
                             tmp = pd.concat([params[['Vd (V)', 'Vg (V)', 'Id (A)', 'gm (S)']], df[bias][freq]], axis=1)
@@ -196,6 +160,7 @@ class StackProcessor:
                             tmp['wafer'] = f'W{wafer_id}'
                             tmp['device'] = name
                             tmp['lot'] = lot_id
+
                             # Reorder columns for consistency
                             tmp = tmp.set_index('lot')
                             cols = tmp.columns.tolist()
@@ -219,23 +184,9 @@ class StackProcessor:
                 logger.error("No valid prediction data was processed")
                 raise ValueError("No valid prediction data")
 
-            # # Save the combined result
-            # output_path = os.path.join(self.config.output_path, f"{save_file}_prediction.csv")
-            # logger.info(f"Saving stacked prediction result to: {output_path}")
-            # result_df.to_csv(output_path, index=True)
-
-            # Optionally save as Excel if needed
+            # Save the combined result using the base class method
             excel_output = os.path.join(self.config.output_path, f"{save_file}.xlsx")
-            with pd.ExcelWriter(excel_output, engine='xlsxwriter') as writer:
-                result_df.to_excel(writer, sheet_name='Stacked_Prediction', index=True)
-                workbook = writer.book
-                worksheet = writer.sheets['Stacked_Prediction']
-
-                # Apply formatting
-                header_format = workbook.add_format({'bold': True, 'border': 1})
-                for col_num, value in enumerate(result_df.columns):
-                    worksheet.write(0, col_num + 1, value, header_format)
-
+            self.save_excel_file(result_df, excel_output, sheet_name='Stacked_Prediction', use_index=True)
             logger.info("Prediction table stacking completed successfully")
 
         except Exception as e:
