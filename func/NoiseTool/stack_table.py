@@ -101,7 +101,7 @@ class StackProcessor(BaseProcessor):
         logger.info(f"Starting stacking process for {save_file}")
 
         # Load data using base class method
-        if not self.load_data(for_plot=False):
+        if not self.load_data(for_plot=False, noise_type=[]):
             logger.error("No data loaded for stacking")
             raise ValueError("No data available for stacking")
 
@@ -137,7 +137,7 @@ class StackProcessor(BaseProcessor):
                     logger.debug(f"Successfully read prediction file with shape: {df.shape}")
 
                     # Extract metadata from filename
-                    if match := re.match(r'0_Prediction_(.+)_(\d[a-zA-Z]{3}\d{5}(?:_[Rr][Tt])?)_(W#\w+)', os.path.basename(file_path)):
+                    if match := re.match(r'0_Prediction_(.+)_(\d[a-zA-Z]{3}\d{5}(?:_[Rr][Tt])?)_W#(\w+)', os.path.basename(file_path)):
                         name = match.group(1)
                         lot_id = match.group(2)
                         wafer_id = match.group(3)
@@ -153,7 +153,7 @@ class StackProcessor(BaseProcessor):
 
                         for freq in [i for i in df.columns.levels[1] if i != 'Parameters']:
                             # Combine parameters and frequency data
-                            tmp = pd.concat([params[['Vd (V)', 'Vg (V)', 'Id (A)', 'gm (S)']], df[bias][freq]], axis=1)
+                            tmp = pd.concat([params[['Vd (V)', 'Vg (V)', 'Id (A)', 'gm (S)', 'tRd (s)', 'Width (um)', 'Length (um)']], df[bias][freq]], axis=1)
                             tmp.insert(0, 'Frequency', [float(freq)] * len(df.index.to_list()))
                             tmp.insert(1, 'Bias', [bias] * len(df.index.to_list()))
                             tmp['Site'] = df.index.to_list()

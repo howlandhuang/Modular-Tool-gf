@@ -1,4 +1,3 @@
-
 # Python cache files
 __pycache__/
 *.py[cod]
@@ -36,6 +35,7 @@ logs/
 ref/
 func/UNUSED/
 *.txt
+!requirements.txt
 temp.py
 demo.py
 debug.py

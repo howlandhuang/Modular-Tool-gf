@@ -1,91 +1,86 @@
-# Modular Tools
+# Modular Tools - Semiconductor Analysis Suite
 
-A comprehensive data processing and visualization tool for semiconductor testing and analysis.
+![Python Version](https://img.shields.io/badge/python-3.8%2B-blue)
+![License](https://img.shields.io/badge/license-GPLv3-green)
 
-## Overview
+A comprehensive GUI application for semiconductor data processing, analysis, and visualization with modular architecture.
 
-Modular Tools is a Python-based application that provides a user-friendly interface for processing, analyzing, and visualizing semiconductor test data. The application features a modular architecture with separate tools for different data processing needs.
+## 🚀 Key Features
 
-### Features
+### 📊 CSV Processing Tool
+- Multi-format support: 
+  - 8-inch/12-inch wafer data
+  - Cascade/TEL/Tohuku/Vtgm measurement systems
+  - Automated metadata extraction
+- Advanced analysis:
+  - Linear regression calculations
+  - Outlier detection & filtering
+  - Temperature-dependent organization
+  - Custom column transformations
 
-- **CSV Tool**: Process and analyze CSV data from various measurement systems
-  - Support for multiple data formats (8-inch, 12-inch, Cascade, TEL, Tohuku, Vtgm)
-  - Automated data extraction and processing
-  - Temperature-based data organization
-  - Custom column extraction
-  - Statistical analysis capabilities
+### 📈 Noise Analysis Tool
+- Comprehensive visualization:
+  - Site-specific plots
+  - Median/Min/Max trends
+  - Frequency-domain analysis
+- Advanced processing:
+  - Noise prediction models
+  - Statistical filtering (IQR-based)
+  - Multi-device comparison
+  - Excel report generation
 
-- **Noise Tool**: Advanced noise analysis and visualization
-  - Multiple visualization options
-  - Statistical processing
-  - Prediction functionality
-  - Customizable data filtering
-  - Site-specific analysis
+### 🔄 File Management Tool
+- Batch renaming with regex
+- Context-aware transformations
+  - Coordinate standardization
+  - Timestamp normalization
+  - Metadata preservation
+- Preview system with undo/redo
 
-- **Rename Tool**: Batch file management
-  - Batch file renaming capabilities
-  - Regular expression support
-  - Custom transformation rules
-  - File filtering options
-  - Preview functionality
-
-## Installation
+## 🛠️ Installation
 
 ### Prerequisites
+- Python 3.8+
+- pip package manager
 
-- Python 3.8 or higher
-- pip (Python package installer)
-
-### Dependencies
-
+### Quick Start
 ```bash
-pip install -r requirements.txt
-```
-
-Required packages:
-- PyQt6
-- Matplotlib
-- Pandas
-- NumPy
-- XlsxWriter
-
-### Installation Steps
-
-1. Clone the repository:
-```bash
+# Clone repository
 git clone https://github.com/yourusername/modular-tools.git
 cd modular-tools
-```
 
-2. Create and activate a virtual environment (recommended):
-```bash
+# Create virtual environment (recommended)
 python -m venv .venv
-# On Windows
+# Windows
 .venv\Scripts\activate
-# On Unix or MacOS
+# Linux/MacOS
 source .venv/bin/activate
-```
 
-3. Install dependencies:
-```bash
+# Install dependencies
 pip install -r requirements.txt
 ```
 
-## Usage
+## 🖥️ Usage
 
-1. Start the application:
+### Launch Application
 ```bash
-python main.py
+python main.py [--debug] [--log-level LEVEL]
 ```
+**Options:**
+- `--debug`: Enable debug mode
+- `--log-level`: Set logging level (DEBUG, INFO, WARNING, ERROR)
 
-2. Select the appropriate tool tab based on your needs:
-   - CSV Tool for data processing
-   - Noise Tool for noise analysis
-   - Rename Tool for file management
+### Application Workflow
+1. Select input files/folders through GUI
+2. Configure processing parameters:
+   - Filter thresholds
+   - Visualization preferences
+   - Output formatting
+3. Preview transformations
+4. Execute processing
+5. Review generated reports/logs
 
-3. Follow the on-screen instructions for each tool.
-
-## Project Structure
+## �� Project Structure
 
 ```
 modular-tools/

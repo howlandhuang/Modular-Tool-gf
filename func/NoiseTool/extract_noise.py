@@ -113,6 +113,13 @@ class DataProcessor:
         Scan directory structure to identify dies and devices.
         Sets total_dies and total_devices based on found files.
         """
+        '''
+        Case 1: Single wafer
+        D:\PythonProject\test_data\7XYY10503_w25\
+            ---Die1_1\...
+            ---Die1_2\...
+        '''
+
         # Find all die folders
         self.die_folders = [f for f in os.listdir(self.config.base_path)
                           if f.startswith('Die') and
@@ -128,6 +135,16 @@ class DataProcessor:
                         os.path.isfile(os.path.join(first_die_path, f))]
         self.total_devices = len(self.device_list)
         logger.debug(f"Found {self.total_devices} devices to process")
+        '''
+        Case 2: Multiple wafers
+        D:\PythonProject\test_data\
+            ---7XYY10503_w25\
+                ---Die1_1\...
+                ---Die1_2\...
+            ---7XYY10504_w26\
+                ---Die1_1\...
+                ---Die1_2\...
+        '''
 
     def get_data_from_raw(self, file):
         """
@@ -178,6 +195,7 @@ class DataProcessor:
         self.gm_idx = header.index('Gm')
         self.vd_idx = header.index('Vrd')
         self.vg_idx = header.index('Vg')
+        self.tRd_idx = header.index('tRd')
 
         try:
             # Extract bias data
@@ -232,28 +250,6 @@ class DataProcessor:
 
         logger.debug(f"Transposed {len(data)} rows with {num_conditions} conditions")
         return result
-
-    '''
-    def check_bias_mismatch(self, var_idx, data):
-        """
-        Check for bias value mismatches across dies.
-
-        Args:
-            var_idx: Index of bias variable to check
-            data: List of bias data for all dies
-
-        Raises:
-            ValueError: If bias mismatch detected
-        """
-        logger.debug(f"Checking bias mismatch for variable index {var_idx}")
-        first_die_pos_biases = [point[var_idx] for point in data[0]]
-        for die_pos_idx, die_pos in enumerate(data[1:], 1):
-            current_biases = [point[var_idx] for point in die_pos]
-            if not all(abs(b1 - b2) < 1e-10 for b1, b2 in zip(first_die_pos_biases, current_biases)):
-                logger.error(f"Bias mismatch detected in die position {die_pos_idx}")
-                raise ValueError(f"Value mismatch: index {var_idx} in bias list in die position {die_pos_idx}")
-        logger.debug("Bias consistency check passed")
-    '''
 
     def stack_bias_list(self, data):
         """
@@ -348,6 +344,27 @@ class DataProcessor:
                 result.append(separator)
         return result
 
+    def get_normalised(self, x, factor):
+        """
+        Calculate normalized value.
+
+        Args:
+            x: Value to normalize
+            factor: Normalization factor
+
+        Returns:
+            float: Normalized value
+        """
+        try:
+            if factor == 0:
+                return np.inf
+            result = x / factor / factor
+            return result
+        except Exception as e:
+            logger.error(f"Error in normalization calculation: {str(e)}")
+            raise
+
+
     def prediction(self, prediction_dict, start_freq, end_freq, interest_freq):
         """
         Perform prediction analysis on noise data.
@@ -433,6 +450,9 @@ class DataProcessor:
                         prediction_data[sheet_name]['Parameters']['gm (S)'][f'Die{idx}'] = p1.iloc[1,idx]
                         prediction_data[sheet_name]['Parameters']['Vd (V)'][f'Die{idx}'] = p1.iloc[2,idx]
                         prediction_data[sheet_name]['Parameters']['Vg (V)'][f'Die{idx}'] = p1.iloc[3,idx]
+                        prediction_data[sheet_name]['Parameters']['tRd (s)'][f'Die{idx}'] = p1.iloc[4,idx]
+                        prediction_data[sheet_name]['Parameters']['Width (um)'][f'Die{idx}'] = p1.iloc[5,idx]
+                        prediction_data[sheet_name]['Parameters']['Length (um)'][f'Die{idx}'] = p1.iloc[6,idx]
         except Exception as e:
             logger.error(f"Error calculating predictions: {str(e)}")
             raise
@@ -463,9 +483,9 @@ class DataProcessor:
                         freqs.extend([freq_num] * 5)
                         types.extend(['Raw', 'Prediction', 'Range', 'Slope', 'Intercept'])
                     else:
-                        sheet_names.extend([sheet] * 4)
-                        freqs.extend(['Parameters'] * 4)
-                        types.extend(['Id (A)', 'gm (S)', 'Vd (V)', 'Vg (V)'])
+                        sheet_names.extend([sheet] * 7)
+                        freqs.extend(['Parameters'] * 7)
+                        types.extend(['Id (A)', 'gm (S)', 'Vd (V)', 'Vg (V)', 'tRd (s)', 'Width (um)', 'Length (um)'])
 
             logger.debug("Column structure prepared")
 
@@ -496,7 +516,9 @@ class DataProcessor:
                             df.loc[die, (sheet, 'Parameters', 'gm (S)')] = prediction_data[sheet]['Parameters']['gm (S)'][die]
                             df.loc[die, (sheet, 'Parameters', 'Vd (V)')] = prediction_data[sheet]['Parameters']['Vd (V)'][die]
                             df.loc[die, (sheet, 'Parameters', 'Vg (V)')] = prediction_data[sheet]['Parameters']['Vg (V)'][die]
-
+                            df.loc[die, (sheet, 'Parameters', 'tRd (s)')] = prediction_data[sheet]['Parameters']['tRd (s)'][die]
+                            df.loc[die, (sheet, 'Parameters', 'Width (um)')] = prediction_data[sheet]['Parameters']['Width (um)'][die]
+                            df.loc[die, (sheet, 'Parameters', 'Length (um)')] = prediction_data[sheet]['Parameters']['Length (um)'][die]
             # Write to Excel with formatting
             logger.debug("Writing to Excel file")
             with pd.ExcelWriter(output_file, engine='xlsxwriter') as writer:
@@ -505,7 +527,7 @@ class DataProcessor:
                 worksheet = writer.sheets['Prediction']
 
                 # Adjust column widths
-                for col_num in range(len(df.columns.levels[0]) * (len(df.columns.levels[1]) * (len(df.columns.levels[2]) - 4 ) + 4)):
+                for col_num in range(len(df.columns.levels[0]) * (len(df.columns.levels[1]) * (len(df.columns.levels[2]) - 7 ) + 7)):
                     worksheet.set_column(col_num + 1, col_num + 1, 11)
 
             logger.info("Prediction results exported successfully")
@@ -566,8 +588,8 @@ class DataProcessor:
                 # Prepare data for export
                 logger.debug(f"Preparing data for {sheet_name}")
                 die_prefix = [f"Die{j+1}" for j in range(self.total_dies)]
-                prefix = ['Id (A)', 'gm (S)', 'Vd (V)', 'Vg (V)']
-                selected_columns = zip(*[(row[self.id_idx], row[self.gm_idx], row[self.vd_idx], row[self.vg_idx]) for row in p1])
+                prefix = ['Id (A)', 'gm (S)', 'Vd (V)', 'Vg (V)', 'tRd (s)', 'Width (um)', 'Length (um)']
+                selected_columns = zip(*[(row[self.id_idx], row[self.gm_idx], row[self.vd_idx], row[self.vg_idx], row[self.tRd_idx], width, length) for row in p1])
                 part1 = [
                     [header] + list(col)
                     for header, col in zip(prefix, selected_columns)
@@ -761,24 +783,4 @@ class DataProcessor:
 
         except Exception as e:
             logger.error(f"Error in process_all_devices: {str(e)}")
-            raise
-
-    def get_normalised(self, x, factor):
-        """
-        Calculate normalized value.
-
-        Args:
-            x: Value to normalize
-            factor: Normalization factor
-
-        Returns:
-            float: Normalized value
-        """
-        try:
-            if factor == 0:
-                return np.inf
-            result = x / factor / factor
-            return result
-        except Exception as e:
-            logger.error(f"Error in normalization calculation: {str(e)}")
             raise

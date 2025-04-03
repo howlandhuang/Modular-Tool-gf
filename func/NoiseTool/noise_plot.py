@@ -149,7 +149,7 @@ class PlotProcessor(BaseProcessor):
         logger.debug(f"Plot type: {fig_type}, Save name: {save_name}")
 
         # Load and prepare data
-        if not self.load_data(for_plot=True):
+        if not self.load_data(for_plot=True, noise_type=noise_type_list):
             logger.error("Failed to load data for plot generation")
             raise ValueError("Failed to load data for plotting")
 

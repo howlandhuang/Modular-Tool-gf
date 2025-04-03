@@ -89,7 +89,7 @@ class NoiseToolTab(QWidget):
             self.uni_config = ulti.ProcessingConfig(
                 base_path = None,
                 output_path = None,
-                basic_info_line_num = 5, # Line number where frequency table starts
+                basic_info_line_num = 8, # Line number where frequency table starts (parameters + header), here we have 7 lines of parameters and 1 line of header
                 pred_range_lower = None,
                 pred_range_upper = None,
                 interest_freq = None,
