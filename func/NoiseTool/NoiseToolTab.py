@@ -179,6 +179,13 @@ class NoiseToolTab(QWidget):
             logger.error(f"Error switching to plot tab: {str(e)}")
             QMessageBox.critical(self, "Error", f"Error switching tab:\n{str(e)}")
 
+    def update_input_display(self):
+        """Update input display based on current base path."""
+        if self.uni_config.base_path:
+            display_list = [f"--{self.uni_config.base_path}--",''] + \
+                            [f for f in os.listdir(self.uni_config.base_path) if os.path.isdir(os.path.join(self.uni_config.base_path, f))]
+            self.model.setStringList(display_list)
+
     def select_extraction_input(self):
         """Select input directory for data extraction."""
         logger.debug("Opening directory selection dialog for extraction input")
@@ -191,11 +198,7 @@ class NoiseToolTab(QWidget):
         if selected_folder:
             logger.info(f"Selected input folder: {selected_folder}")
             self.uni_config.base_path = selected_folder
-            die_folders = [f for f in os.listdir(self.uni_config.base_path)
-                          if f.startswith('Die') and
-                          os.path.isdir(os.path.join(self.uni_config.base_path, f))]
-            self.model.setStringList(die_folders)
-            logger.info(f"Found {len(die_folders)} die folders")
+            self.update_input_display()
 
     def select_input(self):
         """Select input files for processing."""
@@ -211,8 +214,7 @@ class NoiseToolTab(QWidget):
             for f in selected_files:
                 logger.info(f"Selected file: {f}")
             self.uni_config.base_path = selected_files
-            self.model.setStringList([os.path.basename(file_path) for file_path in self.uni_config.base_path])
-            logger.debug("Input file list updated")
+            self.update_input_display()
 
     def select_output(self):
         """Select output directory."""
@@ -286,7 +288,6 @@ class NoiseToolTab(QWidget):
         try:
             logger.debug("Configuring extraction parameters")
             # Get configuration from UI
-            self.uni_config.debug_flag = self.debug_mode_box.isChecked()
             self.uni_config.auto_size = self.auto_size_box.isChecked()
             # Validate input parameters
             logger.debug("Validating input parameters")
@@ -300,7 +301,7 @@ class NoiseToolTab(QWidget):
                 self.uni_config.pred_range_upper = pred_range_upper
                 self.uni_config.interest_freq = interest_freq
                 logger.info("Parameters validated, starting extraction")
-                self.extract_processor.process_all_devices()
+                self.extract_processor.run()
                 logger.info("Raw data extraction completed successfully")
 
             except ValidationError as e:

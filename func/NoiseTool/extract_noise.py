@@ -7,17 +7,16 @@ Supports parallel processing for improved performance.
 import os, concurrent, time, statistics, logging, re
 import pandas as pd
 import numpy as np
+from typing import List
 from concurrent.futures import ProcessPoolExecutor
 from collections import defaultdict
 from multiprocessing import freeze_support
 from func.ulti import (
     lr, ProcessingConfig,
     validate_wafer_id, get_user_input, validate_lot_id, validate_width_length,
-    LOT_ID_PATTERN
+    parse_device_info, LOT_ID_PATTERN
 )
 
-# Enable PyDev debugging
-os.environ['PYDEVD_DISABLE_FILE_VALIDATION'] = '1'
 
 # Initialize module logger - no need to add handler as it inherits from root logger
 logger = logging.getLogger(__name__)
@@ -61,26 +60,6 @@ class DataProcessor:
         """
         logger.debug("Starting wafer info extraction")
         try:
-            parts = str(self.config.base_path).split('/')
-
-            # Check if path follows expected structure
-            if parts[-4] == 'BSIM_W'+  parts[-2] or parts[-4] == 'BSIM_'+  parts[-2] :
-                wafer_id = parts[-2].replace('w', '').replace('W', '')
-                logger.info(f"Found wafer ID from path structure: {wafer_id}")
-            else:
-                logger.warning("Path structure does not match expected format")
-                wafer_id= get_user_input(
-                    'Wafer ID Input',
-                    'Please input wafer ID:',
-                    validate_wafer_id
-                )
-                # if the get_user_input is failed, wafer_id falls back to 'UNKNOWN' to make sure the program can run
-                if wafer_id is None:
-                    wafer_id = 'UNKNOWN'
-                else:
-                    # we add 'W' in the final output('W#xxx') so here we only need the number
-                    wafer_id = wafer_id.replace('w', '').replace('W', '')
-
             # Find all matches of lot ID pattern in path and take the last one
             # defined in func/ulti.py
             matches = re.finditer(LOT_ID_PATTERN, str(self.config.base_path))
@@ -100,51 +79,163 @@ class DataProcessor:
                 if lot_id is None:
                     lot_id = 'UNKNOWN'
 
-            logger.info(f"Extracted wafer info - Wafer ID: {wafer_id}, Lot ID: {lot_id}")
-            return (wafer_id, lot_id)
-
         except Exception as e:
-            logger.error(f"Error extracting wafer info: {str(e)}")
-            logger.warning("Returning default values due to error")
-            return ('UNKNOWN', 'UNKNOWN')
+            logger.error(f"Error extracting lot id: {str(e)}")
+            lot_id = 'UNKNOWN'
 
-    def scan_structure(self):
+        try:
+            parts = str(self.config.base_path).split('/')
+
+            # Check if path follows expected structure
+            if parts[-4] == 'BSIM_W'+  parts[-2] or parts[-4] == 'BSIM_'+  parts[-2] :
+                wafer_id = parts[-2].replace('w', '').replace('W', '')
+                logger.info(f"Found wafer ID from path structure: {wafer_id}")
+            else:
+                logger.warning("Path structure does not match expected format")
+                wafer_id= get_user_input(
+                    'Wafer ID Input',
+                    'Please input wafer ID:',
+                    validate_wafer_id
+                )
+                # if the get_user_input is failed, wafer_id falls back to 'UNKNOWN' to make sure the program can run
+                if wafer_id is None:
+                    wafer_id = 'UNKNOWN'
+                else:
+                    # we add 'W' in the final output('W#xxx') so here we only need the number
+                    wafer_id = wafer_id.replace('w', '').replace('W', '')
+        except Exception as e:
+            logger.error(f"Error extracting wafer id: {str(e)}")
+            wafer_id = 'UNKNOWN'
+
+
+        logger.info(f"Extracted wafer info - Wafer ID: {wafer_id}, Lot ID: {lot_id}")
+        return (wafer_id, lot_id)
+
+    def analyze_directory_structure(self, base_path: str) -> List[str]:
+        """
+        Processes the directory structure to identify wafer and die folders.
+
+        Args:
+            base_path (str): The base directory path to search for wafers and dies.
+
+        Returns:
+            List[str]: A list of paths to wafer directories or the base path if a single wafer is detected.
+
+        Raises:
+            FileNotFoundError: If the base path does not exist.
+        """
+        if not os.path.exists(base_path):
+            raise FileNotFoundError(f"The base path '{base_path}' does not exist.")
+
+        # single wafer case
+        die_folders = [f for f in os.listdir(base_path)
+                    if f.startswith('Die') and
+                    os.path.isdir(os.path.join(base_path, f))]
+        if die_folders:
+            return [base_path]
+        # If we found die folders, we're in the single wafer case
+        else:
+            wafer_candidates = [os.path.join(base_path, f) for f in os.listdir(base_path)
+                                if os.path.isdir(os.path.join(base_path, f))]
+            return wafer_candidates
+
+    def scan_structure(self, wafer_path: str) -> None:
         """
         Scan directory structure to identify dies and devices.
         Sets total_dies and total_devices based on found files.
         """
-        '''
-        Case 1: Single wafer
-        D:\PythonProject\test_data\7XYY10503_w25\
-            ---Die1_1\...
-            ---Die1_2\...
-        '''
-
         # Find all die folders
-        self.die_folders = [f for f in os.listdir(self.config.base_path)
+        self.die_folders = [f for f in os.listdir(wafer_path)
                           if f.startswith('Die') and
-                          os.path.isdir(os.path.join(self.config.base_path, f))]
+                          os.path.isdir(os.path.join(wafer_path, f))]
         self.total_dies = len(self.die_folders)
         logger.debug(f"Found {self.total_dies} die folders")
 
         # Get device list from first die
-        first_die_path = os.path.join(self.config.base_path, self.die_folders[0])
+        first_die_path = os.path.join(wafer_path, self.die_folders[0])
         self.device_list = [f for f in os.listdir(first_die_path)
                         if '_Svg' not in f and
                         '.noi' in f and 'temp' not in f and
                         os.path.isfile(os.path.join(first_die_path, f))]
         self.total_devices = len(self.device_list)
         logger.debug(f"Found {self.total_devices} devices to process")
-        '''
-        Case 2: Multiple wafers
-        D:\PythonProject\test_data\
-            ---7XYY10503_w25\
-                ---Die1_1\...
-                ---Die1_2\...
-            ---7XYY10504_w26\
-                ---Die1_1\...
-                ---Die1_2\...
-        '''
+
+    def update_device_list(self, wafer_path: str):
+        """
+        Update the device list with device's width and length, also get the wafer_id and lot_id.
+
+        Args:
+            wafer_path (str): The path to the wafer directory.
+
+        Returns:
+            None
+
+        Raises:
+            ValueError: If the width or length is not found in the device name or error occurs during code execution.
+        """
+        try:
+            for idx, device in enumerate(self.device_list):
+                wafer_info = parse_device_info(os.path.join(wafer_path, device)) # the joint path here has no actual meaning, just for extract infomation
+
+                # Check if wafer_id and lot_id are already set
+                if not self.wafer_id and not self.lot_id:
+                    if not wafer_info['lot_id']:
+                        # if the lot_id is not found in the path, fallback to manual input
+                        logger.warning("Could not find lot ID in the path, fallback to manual input")
+                        self.lot_id = get_user_input(
+                            'Lot ID Input',
+                            'Please input lot ID:',
+                            validate_lot_id
+                        )
+                        # if the get_user_input is failed, lot_id falls back to 'UNKNOWN' to make sure the program can run
+                        if self.lot_id is None:
+                            self.lot_id = 'UNKNOWN'
+                    else:
+                        self.lot_id = wafer_info['lot_id']
+
+                    if not wafer_info['wafer_id']:
+                        # if the wafer_id is not found in the path, fallback to manual input
+                        logger.warning("Could not find wafer ID in the path, fallback to manual input")
+                        self.wafer_id = get_user_input(
+                            'Wafer ID Input',
+                            'Please input wafer ID:',
+                            validate_wafer_id
+                        )
+
+                        if self.wafer_id is None:
+                            self.wafer_id = 'UNKNOWN'
+                    else:
+                        self.wafer_id = wafer_info['wafer_id']
+
+                    logger.info(f"Wafer ID: {self.wafer_id}, Lot ID is: {self.lot_id}")
+
+                # If auto_size is False, get width and length from user input
+                if not self.config.auto_size:
+                    width = get_user_input(
+                        f'{device} - Width Input',
+                        f'{device}\nPlease input device width:',
+                        validate_width_length
+                    )
+                    length = get_user_input(
+                        f'{device} - Length Input',
+                        f'{device}\nPlease input device length:',
+                        validate_width_length
+                    )
+                    if width is None or length is None:
+                        logger.warning(f"Skipping device {device} due to invalid width or length")
+                        raise ValueError("Must input valid width and length")
+                else:
+                    # Extract width and length from device name
+                    width = wafer_info['width']
+                    length = wafer_info['length']
+
+                width = float(width)
+                length = float(length)
+                self.device_list[idx] = (device, width, length)
+
+        except Exception as e:
+            logger.error(f"Error extracting wafer width and length: {str(e)}")
+            raise ValueError("Fail to extract width and length")
 
     def get_data_from_raw(self, file):
         """
@@ -309,15 +400,15 @@ class DataProcessor:
             return []
 
         num_freq_points = len(position_data[0])
-        num_conditions = len(position_data[0][0]) - 1
-        logger.debug(f"Processing {num_freq_points} frequency points with {num_conditions} conditions")
+        num_biases = len(position_data[0][0]) - 1
+        logger.debug(f"Processing {num_freq_points} frequency points with {num_biases} conditions")
 
         result = []
-        for condition_idx in range(num_conditions):
+        for bias_idx in range(num_biases):
             condition_data = []
             for freq_idx in range(num_freq_points):
                 freq = position_data[0][freq_idx][0]
-                pos_data = [pos[freq_idx][condition_idx + 1] for pos in position_data]
+                pos_data = [pos[freq_idx][bias_idx + 1] for pos in position_data]
                 freq_point_data = [freq] + pos_data
                 condition_data.append(freq_point_data)
             result.append(condition_data)
@@ -363,7 +454,6 @@ class DataProcessor:
         except Exception as e:
             logger.error(f"Error in normalization calculation: {str(e)}")
             raise
-
 
     def prediction(self, prediction_dict, start_freq, end_freq, interest_freq):
         """
@@ -431,28 +521,49 @@ class DataProcessor:
                 for FoI in interest_freq:
                     logger.debug(f"Calculating predictions for frequency {FoI}")
                     for idx in range(1, self.total_dies+1):
-                        # Calculate linear regression
-                        x_log = frequency_range_list_log[start_index:end_index+1]
-                        y_log = np.log10([data[idx] for data in bias_table[start_index:end_index+1]])
-                        slope, intercept, r_square = lr(x_log, y_log)
-                        logger.debug(f"Linear regression for die {idx}: slope={slope:.4f}, intercept={intercept:.4f}, R²={r_square:.4f}")
+                        # Get data points for linear regression, filtering out None values
+                        x_log = []
+                        y_log = []
+                        for i in range(start_index, end_index + 1):
+                            y_val = bias_table[i][idx]
+                            if y_val is not None and not np.isnan(y_val):
+                                x_log.append(frequency_range_list_log[i])
+                                y_log.append(np.log10(y_val))
 
-                        # Calculate prediction
-                        predict_y_result = np.power(10, slope * np.log10(FoI) + intercept)
+                        if len(y_log) < 5:
+                            logger.warning(f"[def prediction()] Not enough valid data points for die {idx} in sheet {sheet_name}")
+                            prediction_data[sheet_name][f'Freq={FoI}']['Raw'][f'Die{idx}'] = None
+                            prediction_data[sheet_name][f'Freq={FoI}']['Predict'][f'Die{idx}'] = None
+                            prediction_data[sheet_name][f'Freq={FoI}']['Range'][f'Die{idx}'] = None
+                            prediction_data[sheet_name][f'Freq={FoI}']['Slope'][f'Die{idx}'] = None
+                            prediction_data[sheet_name][f'Freq={FoI}']['Intercept'][f'Die{idx}'] = None
+                        else:
+                            # Calculate linear regression
+                            slope, intercept, r_square = lr(x_log, y_log)
+                            logger.debug(f"Linear regression for die {idx}: slope={slope:.4f}, intercept={intercept:.4f}, R²={r_square:.4f}")
 
-                        # Store results
-                        prediction_data[sheet_name][f'Freq={FoI}']['Raw'][f'Die{idx}'] = bias_table[np.searchsorted(frequency_range_list, FoI)][idx]
-                        prediction_data[sheet_name][f'Freq={FoI}']['Predict'][f'Die{idx}'] = predict_y_result
-                        prediction_data[sheet_name][f'Freq={FoI}']['Range'][f'Die{idx}'] = (start_freq, end_freq)
-                        prediction_data[sheet_name][f'Freq={FoI}']['Slope'][f'Die{idx}'] = float(slope)
-                        prediction_data[sheet_name][f'Freq={FoI}']['Intercept'][f'Die{idx}'] = float(intercept)
-                        prediction_data[sheet_name]['Parameters']['Id (A)'][f'Die{idx}'] = p1.iloc[0,idx]
-                        prediction_data[sheet_name]['Parameters']['gm (S)'][f'Die{idx}'] = p1.iloc[1,idx]
-                        prediction_data[sheet_name]['Parameters']['Vd (V)'][f'Die{idx}'] = p1.iloc[2,idx]
-                        prediction_data[sheet_name]['Parameters']['Vg (V)'][f'Die{idx}'] = p1.iloc[3,idx]
-                        prediction_data[sheet_name]['Parameters']['tRd (s)'][f'Die{idx}'] = p1.iloc[4,idx]
-                        prediction_data[sheet_name]['Parameters']['Width (um)'][f'Die{idx}'] = p1.iloc[5,idx]
-                        prediction_data[sheet_name]['Parameters']['Length (um)'][f'Die{idx}'] = p1.iloc[6,idx]
+                            # Calculate prediction
+                            predict_y_result = np.power(10, slope * np.log10(FoI) + intercept)
+
+                            # Get raw value, handling None case
+                            raw_value = bias_table[np.searchsorted(frequency_range_list, FoI)][idx]
+                            if raw_value is None or np.isnan(raw_value):
+                                raw_value = None
+
+                            # Store results
+                            prediction_data[sheet_name][f'Freq={FoI}']['Raw'][f'Die{idx}'] = raw_value
+                            prediction_data[sheet_name][f'Freq={FoI}']['Predict'][f'Die{idx}'] = predict_y_result
+                            prediction_data[sheet_name][f'Freq={FoI}']['Range'][f'Die{idx}'] = (start_freq, end_freq)
+                            prediction_data[sheet_name][f'Freq={FoI}']['Slope'][f'Die{idx}'] = float(slope)
+                            prediction_data[sheet_name][f'Freq={FoI}']['Intercept'][f'Die{idx}'] = float(intercept)
+
+                        # Store parameters, handling None values
+                        for param_idx, param_name in enumerate(['Id (A)', 'gm (S)', 'Vd (V)', 'Vg (V)', 'tRd (s)', 'Width (um)', 'Length (um)']):
+                            param_value = p1.iloc[param_idx, idx]
+                            prediction_data[sheet_name]['Parameters'][param_name][f'Die{idx}'] = (
+                                float(param_value) if param_value is not None and not np.isnan(param_value) else None
+                            )
+
         except Exception as e:
             logger.error(f"Error calculating predictions: {str(e)}")
             raise
@@ -564,6 +675,11 @@ class DataProcessor:
                     bias_list, noise_list = self.get_data_from_raw(dut_path)
                     bias_table.append(bias_list)
                     noise_table.append(noise_list)
+                else:
+                    logger.info(f"{die} cannot be found!! making dummy data")
+                    bias_list, noise_list = [[None for _ in row] for row in bias_list], [[None for _ in row] for row in noise_list]
+                    bias_table.append(bias_list)
+                    noise_table.append(noise_list)
 
             # Process collected data
             logger.debug("Processing collected data")
@@ -589,7 +705,7 @@ class DataProcessor:
                 logger.debug(f"Preparing data for {sheet_name}")
                 die_prefix = [f"Die{j+1}" for j in range(self.total_dies)]
                 prefix = ['Id (A)', 'gm (S)', 'Vd (V)', 'Vg (V)', 'tRd (s)', 'Width (um)', 'Length (um)']
-                selected_columns = zip(*[(row[self.id_idx], row[self.gm_idx], row[self.vd_idx], row[self.vg_idx], row[self.tRd_idx], width, length) for row in p1])
+                selected_columns = list(zip(*[(row[self.id_idx], row[self.gm_idx], row[self.vd_idx], row[self.vg_idx], row[self.tRd_idx], width, length) for row in p1]))
                 part1 = [
                     [header] + list(col)
                     for header, col in zip(prefix, selected_columns)
@@ -603,25 +719,65 @@ class DataProcessor:
                     # Calculate Sid statistics
                     sid = row[1:]
 
-                    # Calculate normalized Id statistics
-                    id2 = [self.get_normalised(x, y) for x,y in zip(sid, part1[0][1:])]
+                    # Calculate normalized Id statistics - handle None values
+                    id2 = []
+                    for x, y in zip(sid, part1[0][1:]):
+                        if x is None or y is None:
+                            id2.append(None)
+                        else:
+                            id2.append(self.get_normalised(x, y))
 
-                    # Calculate Gm statistics
-                    svg = [self.get_normalised(x, y) for x,y in zip(sid, part1[1][1:])]
+                    # Calculate Gm statistics - handle None values
+                    svg = []
+                    for x, y in zip(sid, part1[1][1:]):
+                        if x is None or y is None:
+                            svg.append(None)
+                        else:
+                            svg.append(self.get_normalised(x, y))
 
-                    # Calculate frequency-dependent statistics
-                    sid_f = [x*row[0] for x in sid]
+                    # Calculate frequency-dependent statistics - handle None values
+                    sid_f = []
+                    for x in sid:
+                        if x is None or row[0] is None:
+                            sid_f.append(None)
+                        else:
+                            sid_f.append(x * row[0])
 
-                    svg_norm = [x*width*length for x in svg]
+                    # Calculate normalized Svg - handle None values
+                    svg_norm = []
+                    for x in svg:
+                        if x is None or width is None or length is None:
+                            svg_norm.append(None)
+                        else:
+                            svg_norm.append(x * width * length)
 
                     # Combine all data
                     row.extend(id2 + svg + sid_f + svg_norm)
+
+                    # Calculate statistics while filtering out None values
+                    valid_sid = [x for x in sid if x is not None]
+                    valid_id2 = [x for x in id2 if x is not None]
+                    valid_svg = [x for x in svg if x is not None]
+                    valid_sid_f = [x for x in sid_f if x is not None]
+                    valid_svg_norm = [x for x in svg_norm if x is not None]
+
+                    # Extend row with statistics, using None if no valid values exist
                     row.extend([
-                        statistics.median(sid), min(sid), max(sid),
-                        statistics.median(id2), min(id2), max(id2),
-                        statistics.median(svg), min(svg), max(svg),
-                        statistics.median(sid_f), min(sid_f), max(sid_f),
-                        statistics.median(svg_norm), min(svg_norm), max(svg_norm)
+                        statistics.median(valid_sid) if valid_sid else None,
+                        min(valid_sid) if valid_sid else None,
+                        max(valid_sid) if valid_sid else None,
+                        statistics.median(valid_id2) if valid_id2 else None,
+                        min(valid_id2) if valid_id2 else None,
+                        max(valid_id2) if valid_id2 else None,
+                        statistics.median(valid_svg) if valid_svg else None,
+                        min(valid_svg) if valid_svg else None,
+                        max(valid_svg) if valid_svg else None,
+                        statistics.median(valid_sid_f) if valid_sid_f else None,
+                        min(valid_sid_f) if valid_sid_f else None,
+                        max(valid_sid_f) if valid_sid_f else None,
+                        statistics.median(valid_svg_norm) if valid_svg_norm else None,
+                        min(valid_svg_norm) if valid_svg_norm else None,
+                        max(valid_svg_norm) if valid_svg_norm else None
                     ])
 
                 # Create complete headers
@@ -651,6 +807,11 @@ class DataProcessor:
                     columns=missing_cols
                 )
                 df_part1 = pd.concat([df_part1, missing_data], axis=1)[df_part2.columns]
+
+                # Convert all columns to float to avoid pd.cancat featurewarning
+                for col in df_part1.columns[1:]:
+                    df_part1[col] = pd.to_numeric(df_part1[col], errors='coerce')
+                df_part2 = df_part2.apply(pd.to_numeric, errors='coerce')
 
                 # Combine and export data
                 df_noise_list_ori = pd.concat([df_part1, df_part2], axis=0)
@@ -696,7 +857,7 @@ class DataProcessor:
             logger.error(f"Error processing device {device_name}: {str(e)}")
             raise
 
-    def process_all_devices(self):
+    def process_devices(self, wafer_path: str):
         """
         Process all devices in parallel.
         Manages worker processes and tracks progress.
@@ -704,43 +865,10 @@ class DataProcessor:
         freeze_support()
         logger.info("Starting parallel processing of all devices")
         try:
-            self.scan_structure()
-            logger.info(f"Found {self.total_dies} dies and {self.total_devices} devices")
-
-            wafer_info = self.extract_wafer_info_from_path()
-            self.wafer_id = wafer_info[0]
-            self.lot_id = wafer_info[1]
-            logger.debug(f"Wafer ID: {self.wafer_id}, Lot ID is: {self.lot_id}")
-
-            try:
-                for idx, device in enumerate(self.device_list):
-                    # If auto_size is False, get width and length from user input
-                    if not self.config.auto_size:
-                        width = get_user_input(
-                            f'{device} - Width Input',
-                            f'{device}\nPlease input device width:',
-                            validate_width_length
-                        )
-                        length = get_user_input(
-                            f'{device} - Length Input',
-                            f'{device}\nPlease input device length:',
-                            validate_width_length
-                        )
-                        if width is None or length is None:
-                            logger.warning(f"Skipping device {device} due to invalid width or length")
-                            raise ValueError("Must input valid width and length")
-                    else:
-                        # Extract width and length from device name
-                        width = re.search(r'W\d+\.?\d*', device).group(0).replace('W', '')
-                        length = re.search(r'L\d+\.?\d*', device).group(0).replace('L', '')
-
-                    width = float(width)
-                    length = float(length)
-                    self.device_list[idx] = (device, width, length)
-
-            except Exception as e:
-                logger.error(f"Error extracting wafer width and length: {str(e)}")
-                raise ValueError("Fail to extract width and length")
+            self.reset_parameters() # clear any previous infomation
+            self.config.base_path = wafer_path
+            self.scan_structure(wafer_path) # wafer_path = D:\PythonProject\test_data\multiwafer\7ABC12345_W07
+            self.update_device_list(wafer_path)
 
             # Process devices in parallel
             logger.info("Starting parallel device processing")
@@ -760,9 +888,9 @@ class DataProcessor:
                     try:
                         processing_time = float(future.result())  # Get the returned processing time
                         execution_times[device] = processing_time
-                        logger.info(f"Device {device[:-4]} completed in {processing_time:.2f} seconds")
+                        logger.debug(f"Device {device[0][:-4]} completed in {processing_time:.2f} seconds")
                     except Exception as e:
-                        logger.error(f"Device {device[:-4]} failed with error: {str(e)}")
+                        logger.error(f"Device {device[0][:-4]} failed with error: {str(e)}")
                         raise
 
             # Log execution time statistics
@@ -776,11 +904,27 @@ class DataProcessor:
             logger.info("Parallel processing completed")
             logger.info(f"Total execution time: {total_time:.2f} seconds")
             logger.info(f"Average device processing time: {avg_time:.2f} seconds")
-            logger.info(f"Fastest device: {fastest_device[:-4]} ({min_time:.2f} seconds)")
-            logger.info(f"Slowest device: {slowest_device[:-4]} ({max_time:.2f} seconds)")
-            logger.info("All devices processed successfully")
+            logger.info(f"Fastest device: {fastest_device[0][:-4]} ({min_time:.2f} seconds)")
+            logger.info(f"Slowest device: {slowest_device[0][:-4]} ({max_time:.2f} seconds)")
+            logger.info("All devices processed successfully\n\n")
             self.reset_parameters()
+            return
 
         except Exception as e:
-            logger.error(f"Error in process_all_devices: {str(e)}")
+            logger.error(f"Error in process devices: {str(e)}")
             raise
+
+    def run(self):
+        """
+        Process all devices across multiple wafers sequentially.
+        Enhanced version of process_devices that can handle multiple wafers
+        by iterating through each wafer and calling process_devices() for each one.
+        """
+        freeze_support()
+        logger.info("Starting processing of all devices across multiple wafers")
+
+        wafer_paths = self.analyze_directory_structure(self.config.base_path)
+        for wafer_path in wafer_paths:
+            logger.info(f"Processing devices on wafer: {wafer_path}")
+            self.process_devices(wafer_path)
+

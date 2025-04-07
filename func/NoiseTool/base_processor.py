@@ -16,7 +16,7 @@ Key shared functionality includes:
 import os
 import pandas as pd
 import logging
-from func.ulti import split_wafer_file_name, ProcessingConfig, remove_outliers
+from func.ulti import parse_device_info, ProcessingConfig, remove_outliers
 
 # Initialize module logger
 logger = logging.getLogger(__name__)
@@ -68,7 +68,7 @@ class BaseProcessor:
                     df = df.iloc[self.config.basic_info_line_num:].reset_index(drop=True)
 
                 # Parse file name for metadata
-                result = split_wafer_file_name(os.path.basename(file_path))
+                result = parse_device_info(os.path.basename(file_path))
                 logger.debug(f"Extracted metadata - device: {result['device_name']}, lot: {result['lot_id']}, wafer: {result['wafer_id']}, bias: {result['bias_id']}")
 
                 # Apply outlier filtering if enabled and requested

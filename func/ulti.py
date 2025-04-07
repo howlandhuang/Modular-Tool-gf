@@ -18,6 +18,22 @@ from PyQt6.QtWidgets import QWidget, QInputDialog, QMessageBox
 from typing import Any, Callable, Optional
 from functools import wraps
 
+# Validation patterns for input validation
+INVALID_PATH_CHARS = r'[<>:"|?*\x00-\x1F]'
+SINGLE_FREQ_PATTERN = r'\s*(\d+\.?\d*)\s*'
+FREQ_LIST_PATTERN = r'\s*\d+\.?\d*\s*(?:,\s*\d+\.?\d*\s*)*'
+LOT_ID_PATTERN = r'(\d[a-zA-Z]{3}\d{5}(?:_(?:rt|RT|re|RE))?)'
+WAFER_ID_PATTERN = r'[wW](\#?\d+)'
+BIAS_ID_PATTERN = r'(Bias\d+)'
+DEVICE_WIDTH_LENGTH_PATTERN = r'[wW](\d+(?:\.\d+)?)[lLxX](\d+(?:\.\d+)?)'
+RESERVED_NAMES = {
+    "CON", "PRN", "AUX", "NUL",
+    "COM1", "COM2", "COM3", "COM4", "COM5",
+    "COM6", "COM7", "COM8", "COM9",
+    "LPT1", "LPT2", "LPT3", "LPT4", "LPT5",
+    "LPT6", "LPT7", "LPT8", "LPT9"
+}
+
 # Global log queue for multiprocessing
 log_queue = Queue()
 
@@ -110,7 +126,7 @@ def lr(new_x: list, new_y: list):
         logger.error(f"Error in linear regression calculation: {str(e)}")
         raise
 
-def split_wafer_file_name(input_string: str) -> dict:
+def parse_device_info(input_string: str) -> dict:
     """
     Parse wafer file name into components.
 
@@ -142,41 +158,40 @@ def split_wafer_file_name(input_string: str) -> dict:
         }
 
         # Create a copy of input string for manipulation
-        remaining_string = input_string
+        remaining_string = os.path.basename(input_string)
 
-        # Search for lot_id (pattern: 1abc12345, 1abc12345_rt, 1abc12345_RT, 1abc12345_re, 1abc12345_retest)
-        # The entire match including postfix will be captured in lot_id
-        lot_pattern = r'(\d[a-z]{3}\d{5}(?:_(?:rt|RT|re|retest))?)'
-        lot_match = re.search(lot_pattern, remaining_string)
-        if lot_match:
-            result['lot_id'] = lot_match.group(1)
-            remaining_string = remaining_string.replace(lot_match.group(1), '')
+        # Search for the last occurrence of lot_id
+        lot_matches = list(re.finditer(LOT_ID_PATTERN, os.path.dirname(input_string)))
+        if lot_matches:
+            # Get the last match
+            last_lot_match = lot_matches[-1]
+            result['lot_id'] = last_lot_match.group(1)
+            remaining_string = remaining_string.replace(last_lot_match.group(1), '')
             logger.debug(f"Found lot_id: {result['lot_id']}")
 
-        # Search for wafer_id (pattern: W#123)
-        wafer_pattern = r'([Ww]#\d+)'
-        wafer_match = re.search(wafer_pattern, remaining_string)
-        if wafer_match:
-            result['wafer_id'] = wafer_match.group(1)
-            remaining_string = remaining_string.replace(wafer_match.group(1), '')
+        # Search for wafer_id
+        wafer_matches = list(re.finditer(WAFER_ID_PATTERN, os.path.dirname(input_string)))
+        if wafer_matches:
+            # Get the last match
+            last_wafer_match = wafer_matches[-1]
+            result['wafer_id'] = last_wafer_match.group(1)
+            remaining_string = remaining_string.replace(last_wafer_match.group(1), '')
             logger.debug(f"Found wafer_id: {result['wafer_id']}")
 
         # Search for bias (pattern: Bias1)
-        bias_pattern = r'(Bias\d+)'
-        bias_match = re.search(bias_pattern, remaining_string)
+        bias_match = re.search(BIAS_ID_PATTERN, remaining_string)
         if bias_match:
             result['bias_id'] = bias_match.group(1)
             remaining_string = remaining_string.replace(bias_match.group(1), '')
             logger.debug(f"Found bias: {result['bias_id']}")
 
         # Search for width/length (pattern: W1.2L3.4)
-        wl_pattern = r'[wW](\d+\.?\d*)[lL](\d+\.?\d*)'
-        wl_match = re.search(wl_pattern, remaining_string)
+        wl_match = re.search(DEVICE_WIDTH_LENGTH_PATTERN, remaining_string)
         if wl_match:
             result['width'] = wl_match.group(1)
             result['length'] = wl_match.group(2)
             # Replace the entire width/length pattern
-            remaining_string = re.sub(r'[wW]\d+\.?\d*[lL]\d+\.?\d*', '', remaining_string)
+            remaining_string = remaining_string.replace(wl_match.group(0), '')
             logger.debug(f"Found width: {result['width']}, length: {result['length']}")
 
         # Clean up remaining string and set as device name
@@ -191,12 +206,11 @@ def split_wafer_file_name(input_string: str) -> dict:
 
         result['device_name'] = remaining_string
         logger.debug(f"Extracted device name: {result['device_name']}")
-
         logger.debug(f"Successfully parsed: {result}")
         return result
 
     except Exception as e:
-        logger.error(f"Error parsing wafer file name: {str(e)}")
+        logger.error(f"Error parsing device data from {input_string}: {str(e)}")
         raise
 
 def remove_outliers(df, threshold: float, tolerance: float, noise_type: list):
@@ -273,13 +287,11 @@ def remove_outliers(df, threshold: float, tolerance: float, noise_type: list):
         logger.error(f"Error in outlier removal: {str(e)}")
         raise
 
-
 @dataclass
 class CsvProcessingConfig:
     """Configuration class for CSV data processing parameters."""
     input_file_path: str
     output_file_path: str
-
 
 @dataclass
 class ProcessingConfig:
@@ -295,21 +307,6 @@ class ProcessingConfig:
     filter_threshold: int
     filter_tolerance: float
     auto_size: bool
-
-# Validation patterns for input validation
-INVALID_PATH_CHARS = r'[<>:"|?*\x00-\x1F]'
-SINGLE_FREQ_PATTERN = r'\s*(\d+\.?\d*)\s*'
-FREQ_LIST_PATTERN = r'\s*\d+\.?\d*\s*(?:,\s*\d+\.?\d*\s*)*'
-LOT_ID_PATTERN = r'\d[a-zA-Z]{3}\d{5}(?:_[Rr][Tt])?'
-WAFER_ID_PATTERN = r'[wW]\d{1,2}'
-DEVICE_WIDTH_LENGTH_PATTERN = r'\s*(\d+\.?\d*)\s*'
-RESERVED_NAMES = {
-    "CON", "PRN", "AUX", "NUL",
-    "COM1", "COM2", "COM3", "COM4", "COM5",
-    "COM6", "COM7", "COM8", "COM9",
-    "LPT1", "LPT2", "LPT3", "LPT4", "LPT5",
-    "LPT6", "LPT7", "LPT8", "LPT9"
-}
 
 class ValidationError(Exception):
     """Custom exception for validation errors."""

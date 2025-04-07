@@ -7,7 +7,7 @@ import os
 import pandas as pd
 import matplotlib.pyplot as plt
 import logging
-from func.ulti import split_wafer_file_name, ProcessingConfig, remove_outliers
+from func.ulti import parse_device_info, ProcessingConfig, remove_outliers
 from func.NoiseTool.base_processor import BaseProcessor
 
 # Initialize module logger
@@ -181,7 +181,7 @@ class PlotProcessor(BaseProcessor):
 
                 # Generate output filename
                 device_info = os.path.basename(file_path)
-                result = split_wafer_file_name(device_info)
+                result = parse_device_info(device_info)
                 output_file = os.path.join(
                     self.config.output_path,
                     f'{os.path.basename(file_path[:-5])}_filtered_threshold{self.config.filter_threshold}_tolerance{self.config.filter_tolerance}.xlsx'
