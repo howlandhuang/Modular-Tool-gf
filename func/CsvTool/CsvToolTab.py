@@ -9,6 +9,13 @@ from pathlib import Path
 import logging
 from PyQt6 import uic
 import os
+from func.ulti import (
+    CsvProcessingConfig,
+    ValidationError,
+    validate_frequency_list,
+    validate_single_number
+)
+from func.CsvTool import inch_8, inch_12, Cascade, TEL, Tohuku, Vtgm
 
 # Initialize module logger
 logger = logging.getLogger(__name__)
@@ -38,12 +45,12 @@ class CSVToolTab(QWidget):
         logger.debug("Setting up UI connections")
         try:
             # Connect main buttons
-            self.cascade_btn.clicked.connect(self.handle_cascade)
-            self.tel_btn.clicked.connect(self.handle_tel)
-            self.tohuku_btn.clicked.connect(self.handle_tohuku)
-            self.inch12_btn.clicked.connect(self.handle_12inch)
-            self.inch8_btn.clicked.connect(self.handle_8inch)
-            self.vtgm_btn.clicked.connect(self.handle_vtgm)
+            self.cascade_btn.clicked.connect(self.execute_cascade)
+            self.tel_btn.clicked.connect(self.execute_tel)
+            self.tohuku_btn.clicked.connect(self.execute_tohuku)
+            self.inch12_btn.clicked.connect(self.execute_12inch)
+            self.inch8_btn.clicked.connect(self.execute_8inch)
+            self.vtgm_btn.clicked.connect(self.execute_vtgm)
 
             # Connect input/output selection buttons
             self.input_selection_btn.clicked.connect(self.select_input)
@@ -52,6 +59,35 @@ class CSVToolTab(QWidget):
             logger.debug("All UI connections established")
         except Exception as e:
             logger.error(f"Failed to setup UI connections: {str(e)}")
+            raise
+
+    def initialize_processors(self):
+        """Initialize data processing configurations and processors."""
+        logger.debug("Initializing data processors")
+        try:
+            # Clear any existing processors first
+            if hasattr(self, 'extract_processor'):
+                self.extract_processor = None
+            if hasattr(self, 'stack_processor'):
+                self.stack_processor = None
+            if hasattr(self, 'plot_processor'):
+                self.plot_processor = None
+
+            # Create unified configuration with memory limits
+            self.uni_config = CsvProcessingConfig(
+                input_file_path = None,
+                output_file_path = None,
+            )
+            logger.debug("Configuration initialized")
+
+            # Initialize processors
+
+            self.inch8_processor = extract_noise.DataProcessor(self.uni_config)
+            self.inch12_processor = stack_table.StackProcessor(self.uni_config)
+            self.Cascade_processor = noise_plot.PlotProcessor(self.uni_config)
+            logger.debug("All processors initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize processors: {str(e)}")
             raise
 
     def select_input(self):
@@ -108,7 +144,35 @@ class CSVToolTab(QWidget):
             self.output_path_text.setText(folder)
             logger.info(f"Output folder set to: {folder}")
 
-    def handle_cascade(self):
+    def check_io_path(self) -> bool:
+        """
+        Validate input and output paths based on mode.
+
+        In debug mode: only checks input path
+        In normal mode: checks both input and output paths
+
+        Returns:
+            bool: True if paths are valid for current mode, False otherwise
+        """
+        logger.debug("Checking paths based on mode")
+
+        # Check input path first
+        if not self.uni_config.base_path:
+            logger.warning("Missing input path")
+            QMessageBox.warning(self, "No Input Selected", "Please select input files.")
+            return False
+
+        # Additional output path check only for normal mode
+        if not self.debug_mode_box.isChecked():
+            if not self.uni_config.output_path:
+                logger.warning("Missing output path in normal mode")
+                QMessageBox.warning(self, "No Output Selected", "Please select output directory.")
+                return False
+
+        logger.debug(f"Path validation successful in {'debug' if self.debug_mode_box.isChecked() else 'normal'} mode")
+        return True
+
+    def execute_cascade(self):
         """Handle Cascade button click."""
         logger.info("Cascade button clicked")
         self.current_mode = "folder"
@@ -116,7 +180,39 @@ class CSVToolTab(QWidget):
         self.output_selection_btn.setEnabled(True)
         self.input_files_model.setStringList([])  # Clear previous selection
 
-    def handle_tel(self):
+        logger.info("Starting raw data extraction")
+        if not self.check_io_path():
+            return
+
+        try:
+            logger.debug("Configuring extraction parameters")
+            # Get configuration from UI
+            self.uni_config.debug_flag = self.debug_mode_box.isChecked()
+            self.uni_config.auto_size = self.auto_size_box.isChecked()
+            # Validate input parameters
+            logger.debug("Validating input parameters")
+            try:
+                pred_range_lower = validate_single_number(self.range_low_edit.text())
+                pred_range_upper = validate_single_number(self.range_high_edit.text())
+                interest_freq = validate_frequency_list(self.interest_freq_edit.text())
+
+                # Set validated parameters
+                self.uni_config.pred_range_lower = pred_range_lower
+                self.uni_config.pred_range_upper = pred_range_upper
+                self.uni_config.interest_freq = interest_freq
+                logger.info("Parameters validated, starting extraction")
+                self.extract_processor.process_all_devices()
+                logger.info("Raw data extraction completed successfully")
+
+            except ValidationError as e:
+                logger.warning(f"Parameter validation failed: {e.message}")
+                QMessageBox.warning(self, "Input Validation Error", e.message)
+
+        except Exception as e:
+            logger.error(f"Error during raw data extraction: {str(e)}")
+            QMessageBox.critical(self, "Error", f"An error occurred during extraction:\n{str(e)}")
+
+    def execute_tel(self):
         """Handle TEL button click."""
         logger.info("TEL button clicked")
         self.current_mode = "folder"
@@ -124,22 +220,22 @@ class CSVToolTab(QWidget):
         self.output_selection_btn.setEnabled(True)
         self.input_files_model.setStringList([])  # Clear previous selection
 
-    def handle_tohuku(self):
+    def execute_tohuku(self):
         """Handle Tohuku button click."""
         logger.info("Tohuku button clicked")
         self.process_files("tohuku")
 
-    def handle_12inch(self):
+    def execute_12inch(self):
         """Handle 12inch button click."""
         logger.info("12inch button clicked")
         self.process_files("12inch")
 
-    def handle_8inch(self):
+    def execute_8inch(self):
         """Handle 8inch button click."""
         logger.info("8inch button clicked")
         self.process_files("8inch")
 
-    def handle_vtgm(self):
+    def execute_vtgm(self):
         """Handle Vtgm button click."""
         logger.info("Vtgm button clicked")
         self.process_files("vtgm")
