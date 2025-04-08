@@ -9,10 +9,9 @@ import pandas as pd
 import numpy as np
 from typing import List
 from concurrent.futures import ProcessPoolExecutor
-from collections import defaultdict
 from multiprocessing import freeze_support
 from func.ulti import (
-    lr, ProcessingConfig,
+    ProcessingConfig,
     validate_wafer_id, get_user_input, validate_lot_id, validate_width_length,
     parse_device_info, LOT_ID_PATTERN
 )

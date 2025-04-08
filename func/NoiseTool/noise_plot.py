@@ -7,7 +7,7 @@ import os
 import pandas as pd
 import matplotlib.pyplot as plt
 import logging
-from func.ulti import parse_device_info, ProcessingConfig, remove_outliers
+from func.ulti import ProcessingConfig
 from func.NoiseTool.base_processor import BaseProcessor
 
 # Initialize module logger
