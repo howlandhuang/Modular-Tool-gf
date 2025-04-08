@@ -18,9 +18,7 @@ from func.RenameTool.RenameToolTab import RenameToolTab
 
 # Initialize module logger
 logger = logging.getLogger(__name__)
-
-# Set a higher logging level for PyQt6.uic
-logging.getLogger('PyQt6.uic').setLevel(logging.ERROR)  # or logging.ERROR
+logging.getLogger('PyQt6.uic').setLevel(logging.ERROR) # Set a higher logging level for PyQt6.uic
 
 class ModularTools(QtWidgets.QWidget):
     """
@@ -32,12 +30,9 @@ class ModularTools(QtWidgets.QWidget):
         """Initialize the Modular Tools widget and load UI."""
         super().__init__()
         logger.info("Initializing Modular Tools widget")
-        self.version = "3.7.2"
+        self.version = "3.7.3"
         self.setup_ui()
-
-        # Initialize tab modules
         self.initialize_tabs()
-
         logger.info("Modular Tools initialization complete")
 
     def setup_ui(self):

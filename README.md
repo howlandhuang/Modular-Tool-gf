@@ -5,10 +5,32 @@
 
 A comprehensive GUI application for semiconductor data processing, analysis, and visualization with modular architecture.
 
+## TODO/Future Work :-)
+
+### Unit Testing Framework
+- Create comprehensive unit tests for PyQt6 GUI components:
+  - Implement test fixtures for main application windows
+  - Add widget interaction tests (button clicks, raw data selection)
+  - Develop mock objects for file system operations
+  - Set up CI pipeline for automated test execution
+- Test coverage targets:
+  - Core processing algorithms (priority)
+  - UI event handlers and signals
+  - File I/O operations
+  - Error handling and edge cases
+- Tools/frameworks to consider:
+  - pytest-qt for PyQt testing
+  - unittest.mock for mocking dependencies
+  - GitHub Actions for CI/CD integration
+
+### Documentation
+- Improve in-code documentation
+- Create user manual with examples
+
 ## 🚀 Key Features
 
 ### 📊 CSV Processing Tool
-- Multi-format support: 
+- Multi-format support:
   - 8-inch/12-inch wafer data
   - Cascade/TEL/Tohuku/Vtgm measurement systems
   - Automated metadata extraction
@@ -25,7 +47,7 @@ A comprehensive GUI application for semiconductor data processing, analysis, and
   - Frequency-domain analysis
 - Advanced processing:
   - Noise prediction models
-  - Statistical filtering (IQR-based)
+  - Statistical filtering
   - Multi-device comparison
   - Excel report generation
 
@@ -40,14 +62,14 @@ A comprehensive GUI application for semiconductor data processing, analysis, and
 ## 🛠️ Installation
 
 ### Prerequisites
-- Python 3.8+
+- Python 3.11+
 - pip package manager
 
 ### Quick Start
 ```bash
 # Clone repository
-git clone https://github.com/yourusername/modular-tools.git
-cd modular-tools
+git clone https://github.com/yourusername/Modular-Tool-gf.git
+cd Modular-Tool-gf
 
 # Create virtual environment (recommended)
 python -m venv .venv
@@ -80,7 +102,7 @@ python main.py [--debug] [--log-level LEVEL]
 4. Execute processing
 5. Review generated reports/logs
 
-## �� Project Structure
+## 🛠 Project Structure
 
 ```
 modular-tools/
@@ -136,4 +158,4 @@ Huang, Haoyang
 - Matplotlib for visualization capabilities
 - Pandas for data processing
 - NumPy for numerical computations
-- XlsxWriter for Excel file handling 
+- XlsxWriter for Excel file handling

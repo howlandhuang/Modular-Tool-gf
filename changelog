@@ -1,5 +1,11 @@
 Changelog
 
+Version 3.7.3 (2024-04-08)
+- Added watermark to plot function
+- Fixed error in stacking and plotting logic
+- Update requirements.txt and README.md
+
+
 Version 3.7.2 (2024-04-08)
 - Reworked CSV tool UI and logic funcs
 - Added support for 8-inch wafer data processing

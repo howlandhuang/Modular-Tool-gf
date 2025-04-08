@@ -61,7 +61,7 @@ class PlotProcessor(BaseProcessor):
         logger.info(f"Creating plot for {noise_type} with type {fig_type}")
         try:
             # Create figure with wider width to accommodate legend
-            plt.figure(figsize=(14, 8))
+            fig = plt.figure(figsize=(14, 8))
             colors = plt.cm.tab10(range(10))
             logger.debug("Figure created")
 
@@ -116,6 +116,42 @@ class PlotProcessor(BaseProcessor):
             # Adjust layout to make room for the legend
             plt.tight_layout()
             plt.subplots_adjust(right=0.75)  # Adjust right margin to make space for legend
+
+            # Add watermark to bottom-left corner
+            try:
+                from pathlib import Path
+                import matplotlib.image as mpimg
+                from matplotlib.offsetbox import OffsetImage, AnnotationBbox
+
+                # Get the watermark path
+                watermark_path = Path(__file__).parent.parent.parent / 'ui' / 'frcmos device.jpg'
+                logger.debug(f"Loading watermark from: {watermark_path}")
+
+                if watermark_path.exists():
+                    # Load the image
+                    watermark = mpimg.imread(str(watermark_path))
+
+                    # Create offset image with transparency
+                    imagebox = OffsetImage(watermark, zoom=0.3, alpha=0.5)  # Adjust zoom and alpha as needed
+
+                    # Position in data coordinates (use ax.get_xlim() and ax.get_ylim())
+                    ax = plt.gca()
+                    xlimits = ax.get_xlim()
+                    ylimits = ax.get_ylim()
+
+                    # Position watermark at bottom-left (10% from edge)
+                    x_pos = xlimits[0] + 10
+                    y_pos = ylimits[0] * 10
+
+                    # Create annotation box
+                    ab = AnnotationBbox(imagebox, (x_pos, y_pos), frameon=False, pad=0)
+                    ax.add_artist(ab)
+
+                    logger.debug("Watermark added to plot")
+                else:
+                    logger.warning(f"Watermark image not found at {watermark_path}")
+            except Exception as e:
+                logger.warning(f"Failed to add watermark to plot: {str(e)}")
 
             if not self.config.debug_flag:
                 output_path = f'{self.config.output_path}/{save_name}_{title.replace("/", "_").replace("*", "x")}.png'

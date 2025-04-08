@@ -180,11 +180,21 @@ class NoiseToolTab(QWidget):
             QMessageBox.critical(self, "Error", f"Error switching tab:\n{str(e)}")
 
     def update_input_display(self):
-        """Update input display based on current base path."""
-        if self.uni_config.base_path:
-            display_list = [f"--{self.uni_config.base_path}--",''] + \
-                            [f for f in os.listdir(self.uni_config.base_path) if os.path.isdir(os.path.join(self.uni_config.base_path, f))]
-            self.model.setStringList(display_list)
+        # Handle displaying both files and directories in the list view
+        if isinstance(self.uni_config.base_path, list):
+            # We have a list of files
+            upper_dir = [f"--Selected Files--", '']
+            sub_dir = [os.path.basename(f) for f in self.uni_config.base_path]
+        elif isinstance(self.uni_config.base_path, str) and os.path.isdir(self.uni_config.base_path):
+            # We have a directory
+            upper_dir = [f"--{self.uni_config.base_path}--", '']
+            sub_dir = [f for f in os.listdir(self.uni_config.base_path)]
+        else:
+            # Single file or None
+            upper_dir = ["--Selected File--", '']
+            sub_dir = [self.uni_config.base_path] if self.uni_config.base_path else []
+
+        self.model.setStringList(upper_dir + sub_dir)
 
     def select_extraction_input(self):
         """Select input directory for data extraction."""
