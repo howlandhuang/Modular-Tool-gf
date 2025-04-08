@@ -5,6 +5,28 @@
 
 A comprehensive GUI application for semiconductor data processing, analysis, and visualization with modular architecture.
 
+## TODO/Future Work :-)
+
+### Unit Testing Framework
+- Create comprehensive unit tests for PyQt6 GUI components:
+  - Implement test fixtures for main application windows
+  - Add widget interaction tests (button clicks, raw data selection)
+  - Develop mock objects for file system operations
+  - Set up CI pipeline for automated test execution
+- Test coverage targets:
+  - Core processing algorithms (priority)
+  - UI event handlers and signals
+  - File I/O operations
+  - Error handling and edge cases
+- Tools/frameworks to consider:
+  - pytest-qt for PyQt testing
+  - unittest.mock for mocking dependencies
+  - GitHub Actions for CI/CD integration
+
+### Documentation
+- Improve in-code documentation
+- Create user manual with examples
+
 ## 🚀 Key Features
 
 ### 📊 CSV Processing Tool
@@ -25,7 +47,7 @@ A comprehensive GUI application for semiconductor data processing, analysis, and
   - Frequency-domain analysis
 - Advanced processing:
   - Noise prediction models
-  - Statistical filtering (IQR-based)
+  - Statistical filtering
   - Multi-device comparison
   - Excel report generation
 
@@ -40,14 +62,14 @@ A comprehensive GUI application for semiconductor data processing, analysis, and
 ## 🛠️ Installation
 
 ### Prerequisites
-- Python 3.8+
+- Python 3.11+
 - pip package manager
 
 ### Quick Start
 ```bash
 # Clone repository
-git clone https://github.com/howlandhuang/modular-tools.git
-cd modular-tools
+git clone https://github.com/yourusername/Modular-Tool-gf.git
+cd Modular-Tool-gf
 
 # Create virtual environment (recommended)
 python -m venv .venv
@@ -80,20 +102,23 @@ python main.py [--debug] [--log-level LEVEL]
 4. Execute processing
 5. Review generated reports/logs
 
-## �� Project Structure
+## 🛠 Project Structure
 
 ```
 modular-tools/
-├── main.py               # Main application entry point
-├── requirements.txt      # Project dependencies
-├── LICENSE               # GPLv3 License
-├── UI/                   # UI files
+├── main.py              # Main application entry point
+├── requirements.txt     # Project dependencies
+├── LICENSE             # GPLv3 License
+├── UI/                 # UI files
 │   ├── modular_tools.ui
-│   └── noise_tool_tab.ui
-├── func/                 # Functional modules
-│   ├── ulti.py
-│   └── NoiseTool/        # Noise analysis tools
-└── logs/                 # Application logs
+│   ├── csv_tool_tab.ui
+│   ├── noise_tool_tab.ui
+│   └── rename_tool_tab.ui
+├── func/               # Functional modules
+│   ├── CsvTool/       # CSV processing tools
+│   ├── NoiseTool/     # Noise analysis tools
+│   └── RenameTool/    # File renaming tools
+└── logs/              # Application logs
 ```
 
 ## Development
