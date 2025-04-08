@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from logging.handlers import QueueHandler, QueueListener
 from queue import Queue
 from PyQt6.QtWidgets import QWidget, QInputDialog, QMessageBox
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, List
 from functools import wraps
 
 # Validation patterns for input validation
@@ -99,7 +99,6 @@ def lr(new_x: list, new_y: list):
     Returns:
         tuple: (slope, intercept, R_square)
     """
-    logger.debug(f"Starting linear regression calculation with {len(new_x)} points")
     try:
         new_x = np.array(new_x)
         new_y = np.array(new_y)
@@ -119,8 +118,6 @@ def lr(new_x: list, new_y: list):
         SS_res = np.sum((new_y - y_pred) ** 2)
         SS_tot = np.sum((new_y - new_y_avg) ** 2)
         R_square = 1 - (SS_res / SS_tot)
-
-        logger.debug(f"Linear regression completed: slope={slope:.4f}, intercept={intercept:.4f}, R²={R_square:.4f}")
         return slope, intercept, R_square
     except Exception as e:
         logger.error(f"Error in linear regression calculation: {str(e)}")
@@ -290,8 +287,9 @@ def remove_outliers(df, threshold: float, tolerance: float, noise_type: list):
 @dataclass
 class CsvProcessingConfig:
     """Configuration class for CSV data processing parameters."""
-    input_file_path: str
-    output_file_path: str
+    input_path: str
+    output_path: str
+    magnetic_fields: List[float]
 
 @dataclass
 class ProcessingConfig:

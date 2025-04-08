@@ -33,16 +33,23 @@ class ModularTools(QtWidgets.QWidget):
         super().__init__()
         logger.info("Initializing Modular Tools widget")
         self.version = "3.7.2"
-        # Load UI file
-        ui_path = Path(__file__).parent / 'UI' / 'modular_tools.ui'
-        logger.info(f"Loading UI from: {ui_path}")
-        uic.loadUi(ui_path, self)
-        self.setWindowTitle(f"Modular Tools - {self.version}")
+        self.setup_ui()
 
         # Initialize tab modules
         self.initialize_tabs()
 
         logger.info("Modular Tools initialization complete")
+
+    def setup_ui(self):
+        """Load the UI file."""
+        ui_path = Path(__file__).parent / 'UI' / 'modular_tools.ui'
+        logger.info(f"Loading UI from: {ui_path}")
+        try:
+            uic.loadUi(ui_path, self)
+            self.setWindowTitle(f"Modular Tools - {self.version}")
+        except Exception as e:
+            logger.error(f"Failed to load UI: {str(e)}")
+            raise
 
     def initialize_tabs(self):
         """Initialize tab module instances and add them to the tab widget."""

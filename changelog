@@ -1,0 +1,11 @@
+Changelog
+
+Version 3.7.2 (2024-04-08)
+- Reworked CSV tool UI and logic funcs
+- Added support for 8-inch wafer data processing
+- Improved main windows ui loading func
+
+
+Version 3.7.1 (2024-04-04)
+- Added fallback dummy data mechanism to handle raw data missing situations
+- Improved error handling for incomplete datasets

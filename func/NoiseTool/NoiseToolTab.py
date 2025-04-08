@@ -11,7 +11,7 @@ from PyQt6 import uic
 from func import ulti
 from func.ulti import (
     get_user_input, validate_filename, validate_single_number,
-    validate_frequency_list, validate_range, ValidationError
+    validate_frequency_list, validate_range, ValidationError, ProcessingConfig
 )
 from func.NoiseTool import extract_noise
 from func.NoiseTool import stack_table
@@ -86,7 +86,7 @@ class NoiseToolTab(QWidget):
                 self.plot_processor = None
 
             # Create unified configuration with memory limits
-            self.uni_config = ulti.ProcessingConfig(
+            self.uni_config = ProcessingConfig(
                 base_path = None,
                 output_path = None,
                 basic_info_line_num = 8, # Line number where frequency table starts (parameters + header), here we have 7 lines of parameters and 1 line of header
@@ -192,7 +192,7 @@ class NoiseToolTab(QWidget):
         selected_folder = QFileDialog.getExistingDirectory(
             self,
             "Select Raw Data Directory",
-            r"C:\Users\hhuang10\Downloads\negative_debugging\extracted_data\new",
+            "",
             QFileDialog.Option.ShowDirsOnly
         )
         if selected_folder:
@@ -206,7 +206,7 @@ class NoiseToolTab(QWidget):
         selected_files, _ = QFileDialog.getOpenFileNames(
             self,
             "Select .xlsx File(s)",
-            r"C:\Users\hhuang10\Documents\test_data\results",
+            "",
             "Excel Files (*.xlsx)",
         )
         if selected_files:
@@ -222,7 +222,7 @@ class NoiseToolTab(QWidget):
         selected_folder = QFileDialog.getExistingDirectory(
             self,
             "Select Output Directory",
-            r"C:\Users\hhuang10\Documents\test_data",
+            "",
             QFileDialog.Option.ShowDirsOnly
         )
         if selected_folder:
