@@ -62,12 +62,10 @@ class NoiseToolTab(QWidget):
             # Connect action buttons
             self.extract_btn.clicked.connect(self.execute_raw_data_extraction)
             self.noise_stack_btn.clicked.connect(self.execute_stack_noise_table)
-            self.prediction_stack_btn.clicked.connect(self.execute_stack_prediction_table)
             self.by_site_btn.clicked.connect(self.execute_plot)
             self.med_only_btn.clicked.connect(self.execute_plot)
             self.min_only_btn.clicked.connect(self.execute_plot)
             self.max_only_btn.clicked.connect(self.execute_plot)
-            self.save_filtered_btn.clicked.connect(self.save_filtered_result)
             logger.debug("All UI connections established")
         except Exception as e:
             logger.error(f"Failed to setup UI connections: {str(e)}")
@@ -181,10 +179,21 @@ class NoiseToolTab(QWidget):
 
     def update_input_display(self):
         """Update input display based on current base path."""
-        if self.uni_config.base_path:
-            display_list = [f"--{self.uni_config.base_path}--",''] + \
-                            [f for f in os.listdir(self.uni_config.base_path) if os.path.isdir(os.path.join(self.uni_config.base_path, f))]
-            self.model.setStringList(display_list)
+        # Handle displaying both files and directories in the list view
+        if isinstance(self.uni_config.base_path, list):
+            # We have a list of files
+            upper_dir = [f"--Selected Files--", '']
+            sub_dir = [os.path.basename(f) for f in self.uni_config.base_path]
+        elif isinstance(self.uni_config.base_path, str) and os.path.isdir(self.uni_config.base_path):
+            # We have a directory
+            upper_dir = [f"--{self.uni_config.base_path}--", '']
+            sub_dir = [f for f in os.listdir(self.uni_config.base_path)]
+        else:
+            # Single file or None
+            upper_dir = ["--Selected File--", '']
+            sub_dir = [self.uni_config.base_path] if self.uni_config.base_path else []
+
+        self.model.setStringList(upper_dir + sub_dir)
 
     def select_extraction_input(self):
         """Select input directory for data extraction."""
@@ -250,13 +259,11 @@ class NoiseToolTab(QWidget):
             return False
 
         # Additional output path check only for normal mode
-        if not self.debug_mode_box.isChecked():
-            if not self.uni_config.output_path:
-                logger.warning("Missing output path in normal mode")
-                QMessageBox.warning(self, "No Output Selected", "Please select output directory.")
-                return False
+        if not self.uni_config.output_path:
+            logger.warning("Missing output path in normal mode")
+            QMessageBox.warning(self, "No Output Selected", "Please select output directory.")
+            return False
 
-        logger.debug(f"Path validation successful in {'debug' if self.debug_mode_box.isChecked() else 'normal'} mode")
         return True
 
     def update_noise_types(self):
@@ -289,25 +296,8 @@ class NoiseToolTab(QWidget):
             logger.debug("Configuring extraction parameters")
             # Get configuration from UI
             self.uni_config.auto_size = self.auto_size_box.isChecked()
-            # Validate input parameters
-            logger.debug("Validating input parameters")
-            try:
-                pred_range_lower = validate_single_number(self.range_low_edit.text())
-                pred_range_upper = validate_single_number(self.range_high_edit.text())
-                interest_freq = validate_frequency_list(self.interest_freq_edit.text())
-
-                # Set validated parameters
-                self.uni_config.pred_range_lower = pred_range_lower
-                self.uni_config.pred_range_upper = pred_range_upper
-                self.uni_config.interest_freq = interest_freq
-                logger.info("Parameters validated, starting extraction")
-                self.extract_processor.run()
-                logger.info("Raw data extraction completed successfully")
-
-            except ValidationError as e:
-                logger.warning(f"Parameter validation failed: {e.message}")
-                QMessageBox.warning(self, "Input Validation Error", e.message)
-
+            self.extract_processor.run()
+            logger.info("Raw data extraction completed successfully")
         except Exception as e:
             logger.error(f"Error during raw data extraction: {str(e)}")
             QMessageBox.critical(self, "Error", f"An error occurred during extraction:\n{str(e)}")
@@ -331,31 +321,6 @@ class NoiseToolTab(QWidget):
 
             logger.info(f"Starting stacking with save name: {save_name}")
             self.stack_processor.run_noise_table_stacking(save_name)
-            logger.info("Table stacking completed successfully")
-
-        except Exception as e:
-            logger.error(f"Error during table stacking: {str(e)}")
-            QMessageBox.critical(self, "Error", f"An error occurred during stacking:\n{str(e)}")
-
-    def execute_stack_prediction_table(self):
-        """Execute table stacking process."""
-        logger.info("Starting table stacking process")
-        if not self.check_io_path():
-            return
-
-        try:
-            logger.debug("Using file name from user input")
-            save_name = get_user_input(
-                'Input File Name',
-                'Enter the file name:',
-                validate_filename
-            )
-            if save_name is None:
-                logger.warning("User cancelled or invalid file name input")
-                return
-
-            logger.info(f"Starting stacking with save name: {save_name}")
-            self.stack_processor.run_prediction_table_stacking(save_name)
             logger.info("Table stacking completed successfully")
 
         except Exception as e:
@@ -389,22 +354,6 @@ class NoiseToolTab(QWidget):
                     logger.warning("User cancelled or invalid file name input")
                     return
 
-            # Check filter threshold and tolerance setting
-            if self.filter_outliers_box.isChecked():
-                logger.debug("Configuring outlier filtering")
-                self.uni_config.filter_outliers_flag = True
-                try:
-                    self.uni_config.filter_threshold = validate_range(
-                        self.filter_threshold_edit.text(), 0.0, 1.0)
-                    self.uni_config.filter_tolerance = validate_range(
-                        self.filter_tolerance_edit.text(), 0.0, 3.0)
-                except ValidationError as e:
-                    logger.warning(f"Invalid filter parameters: {e.message}")
-                    QMessageBox.warning(self, "Input Validation Error", e.message)
-                    return
-            else:
-                self.uni_config.filter_outliers_flag = False
-
             # Execute plot based on button clicked
             sender = self.sender()
             logger.info(f"Generating plot from {sender.objectName()}")
@@ -425,19 +374,6 @@ class NoiseToolTab(QWidget):
         except Exception as e:
             logger.error(f"Error during plot generation: {str(e)}")
             QMessageBox.critical(self, "Error", f"An error occurred during plotting:\n{str(e)}")
-
-    def save_filtered_result(self):
-        """Save filtered data results."""
-        logger.info("Starting filtered result export")
-        if not self.check_io_path():
-            return
-        try:
-            self.update_noise_types()
-            self.plot_processor.save_filtered_result(self.noise_types)
-            logger.info("Filtered results saved successfully")
-        except Exception as e:
-            logger.error(f"Error saving filtered results: {str(e)}")
-            QMessageBox.critical(self, "Error", f"An error occurred when saving filtered result:\n{str(e)}")
 
     def closeEvent(self, event):
         """Handle tab close event - cleanup handled by parent."""

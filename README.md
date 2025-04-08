@@ -8,7 +8,7 @@ A comprehensive GUI application for semiconductor data processing, analysis, and
 ## 🚀 Key Features
 
 ### 📊 CSV Processing Tool
-- Multi-format support: 
+- Multi-format support:
   - 8-inch/12-inch wafer data
   - Cascade/TEL/Tohuku/Vtgm measurement systems
   - Automated metadata extraction
@@ -46,7 +46,7 @@ A comprehensive GUI application for semiconductor data processing, analysis, and
 ### Quick Start
 ```bash
 # Clone repository
-git clone https://github.com/yourusername/modular-tools.git
+git clone https://github.com/howlandhuang/modular-tools.git
 cd modular-tools
 
 # Create virtual environment (recommended)
@@ -84,19 +84,16 @@ python main.py [--debug] [--log-level LEVEL]
 
 ```
 modular-tools/
-├── main.py              # Main application entry point
-├── requirements.txt     # Project dependencies
-├── LICENSE             # GPLv3 License
-├── UI/                 # UI files
+├── main.py               # Main application entry point
+├── requirements.txt      # Project dependencies
+├── LICENSE               # GPLv3 License
+├── UI/                   # UI files
 │   ├── modular_tools.ui
-│   ├── csv_tool_tab.ui
-│   ├── noise_tool_tab.ui
-│   └── rename_tool_tab.ui
-├── func/               # Functional modules
-│   ├── CsvTool/       # CSV processing tools
-│   ├── NoiseTool/     # Noise analysis tools
-│   └── RenameTool/    # File renaming tools
-└── logs/              # Application logs
+│   └── noise_tool_tab.ui
+├── func/                 # Functional modules
+│   ├── ulti.py
+│   └── NoiseTool/        # Noise analysis tools
+└── logs/                 # Application logs
 ```
 
 ## Development
@@ -136,4 +133,4 @@ Huang, Haoyang
 - Matplotlib for visualization capabilities
 - Pandas for data processing
 - NumPy for numerical computations
-- XlsxWriter for Excel file handling 
+- XlsxWriter for Excel file handling

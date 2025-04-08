@@ -61,7 +61,7 @@ class PlotProcessor(BaseProcessor):
         logger.info(f"Creating plot for {noise_type} with type {fig_type}")
         try:
             # Create figure with wider width to accommodate legend
-            plt.figure(figsize=(14, 8))
+            fig = plt.figure(figsize=(14, 8))
             colors = plt.cm.tab10(range(10))
             logger.debug("Figure created")
 
@@ -117,6 +117,42 @@ class PlotProcessor(BaseProcessor):
             plt.tight_layout()
             plt.subplots_adjust(right=0.75)  # Adjust right margin to make space for legend
 
+            # Add watermark to bottom-left corner
+            try:
+                from pathlib import Path
+                import matplotlib.image as mpimg
+                from matplotlib.offsetbox import OffsetImage, AnnotationBbox
+
+                # Get the watermark path
+                watermark_path = Path(__file__).parent.parent.parent / 'ui' / 'frcmos device.jpg'
+                logger.debug(f"Loading watermark from: {watermark_path}")
+
+                if watermark_path.exists():
+                    # Load the image
+                    watermark = mpimg.imread(str(watermark_path))
+
+                    # Create offset image with transparency
+                    imagebox = OffsetImage(watermark, zoom=0.3, alpha=0.5)  # Adjust zoom and alpha as needed
+
+                    # Position in data coordinates (use ax.get_xlim() and ax.get_ylim())
+                    ax = plt.gca()
+                    xlimits = ax.get_xlim()
+                    ylimits = ax.get_ylim()
+
+                    # Position watermark at bottom-left (10% from edge)
+                    x_pos = xlimits[0] + 10
+                    y_pos = ylimits[0] * 10
+
+                    # Create annotation box
+                    ab = AnnotationBbox(imagebox, (x_pos, y_pos), frameon=False, pad=0)
+                    ax.add_artist(ab)
+
+                    logger.debug("Watermark added to plot")
+                else:
+                    logger.warning(f"Watermark image not found at {watermark_path}")
+            except Exception as e:
+                logger.warning(f"Failed to add watermark to plot: {str(e)}")
+
             if not self.config.debug_flag:
                 output_path = f'{self.config.output_path}/{save_name}_{title.replace("/", "_").replace("*", "x")}.png'
                 logger.info(f"Saving plot to: {output_path}")
@@ -159,43 +195,3 @@ class PlotProcessor(BaseProcessor):
             self._plot_data(noise_type, fig_type, save_name)
 
         logger.info("Plot generation completed successfully")
-
-    def save_filtered_result(self, noise_type_list):
-        """Save filtered data results to Excel files."""
-        logger.info("Starting filtered result export")
-        try:
-            for file_path in self.config.base_path:
-                logger.debug(f"Processing file: {file_path}")
-
-                # Read original file (we need both header and data)
-                df = pd.read_excel(file_path)
-                logger.debug(f"Read file with shape: {df.shape}")
-
-                # Preserve header and apply filtering to data
-                header = df.iloc[:self.config.basic_info_line_num]
-                data = df.iloc[self.config.basic_info_line_num:]
-                logger.debug("Applying outlier filtering")
-                data, removed_data = remove_outliers(data, self.config.filter_threshold, self.config.filter_tolerance, noise_type_list)
-                modified_df = pd.concat([header, data], ignore_index=True)
-                logger.debug(f"Final DataFrame shape: {modified_df.shape}")
-
-                # Generate output filename
-                device_info = os.path.basename(file_path)
-                result = parse_device_info(device_info)
-                output_file = os.path.join(
-                    self.config.output_path,
-                    f'{os.path.basename(file_path[:-5])}_filtered_threshold{self.config.filter_threshold}_tolerance{self.config.filter_tolerance}.xlsx'
-                )
-                logger.info(f"Saving filtered result to: {output_file}")
-
-                # Save using the base class method
-                with pd.ExcelWriter(output_file, engine='xlsxwriter') as writer:
-                    modified_df.to_excel(writer, sheet_name=result['bias_id'], index=False)
-                    removed_data.to_excel(writer, sheet_name='filtered', index=False)
-                
-                logger.debug(f"Completed processing file: {file_path}")
-
-            logger.info("Filtered result export completed successfully")
-        except Exception as e:
-            logger.error(f"Error saving filtered results: {str(e)}")
-            raise

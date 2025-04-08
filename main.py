@@ -4,17 +4,16 @@ Provides a GUI interface for various Excel-related operations using a modular ta
 This module can be run directly as the main entry point for the application.
 """
 
-from PyQt6 import QtWidgets, uic
+from PyQt6 import QtWidgets, uic, QtCore, QtGui
 from PyQt6.QtWidgets import QApplication, QMessageBox
+from PyQt6.QtGui import QPixmap, QPalette, QBrush
 import logging
 import sys
 import time
 from pathlib import Path
 from multiprocessing import freeze_support
 from func.ulti import setup_logger
-from func.CsvTool.CsvToolTab import CSVToolTab
 from func.NoiseTool.NoiseToolTab import NoiseToolTab
-from func.RenameTool.RenameToolTab import RenameToolTab
 
 # Initialize module logger
 logger = logging.getLogger(__name__)
@@ -32,11 +31,15 @@ class ModularTools(QtWidgets.QWidget):
         """Initialize the Modular Tools widget and load UI."""
         super().__init__()
         logger.info("Initializing Modular Tools widget")
-        self.version = "3.7.2"
+        self.version = "distribution version"
         self.setup_ui()
 
         # Initialize tab modules
         self.initialize_tabs()
+
+        # Set background watermark
+        watermark_path = Path(__file__).parent / 'ui' / 'watermark.jpg'
+        self.set_background_watermark(str(watermark_path))
 
         logger.info("Modular Tools initialization complete")
 
@@ -51,22 +54,74 @@ class ModularTools(QtWidgets.QWidget):
             logger.error(f"Failed to load UI: {str(e)}")
             raise
 
+    def set_background_watermark(self, image_path: str) -> None:
+        """
+        Set a watermark as the background of the application.
+
+        Args:
+            image_path: Path to the watermark image
+        """
+        try:
+            logger.info(f"Setting background watermark from: {image_path}")
+            # Create a pixmap from the image file
+            pixmap = QPixmap(image_path)
+
+            if pixmap.isNull():
+                logger.error(f"Failed to load watermark image from {image_path}")
+                return
+
+            # Scale the pixmap to fit the widget
+            scaled_pixmap = pixmap.scaled(
+                self.size(),
+                QtCore.Qt.AspectRatioMode.KeepAspectRatioByExpanding,
+                QtCore.Qt.TransformationMode.SmoothTransformation
+            )
+
+            # Create a palette
+            palette = self.palette()
+            brush = QBrush(scaled_pixmap)
+            palette.setBrush(QPalette.ColorRole.Window, brush)
+            self.setPalette(palette)
+
+            # Make sure the background is visible
+            self.setAutoFillBackground(True)
+
+            # Connect resize event to update watermark size when window is resized
+            self.resizeEvent = self.update_watermark_on_resize
+
+            logger.info("Background watermark set successfully")
+        except Exception as e:
+            logger.error(f"Error setting background watermark: {str(e)}")
+
+    def update_watermark_on_resize(self, event: QtGui.QResizeEvent) -> None:
+        """
+        Update the watermark when the window is resized.
+
+        Args:
+            event: The resize event
+        """
+        try:
+            # Re-apply the watermark with new dimensions
+            watermark_path = Path(__file__).parent / 'ui' / 'watermark.jpg'
+            self.set_background_watermark(str(watermark_path))
+            # Call the parent class's resize event handler
+            super().resizeEvent(event)
+        except Exception as e:
+            logger.error(f"Error updating watermark on resize: {str(e)}")
+            super().resizeEvent(event)
+
     def initialize_tabs(self):
         """Initialize tab module instances and add them to the tab widget."""
         logger.info("Initializing tab modules")
 
         # Create tab instances
-        self.csv_tab = CSVToolTab()
         self.noise_tab = NoiseToolTab()
-        self.rename_tab = RenameToolTab()
 
         # Clear existing tabs and add our custom tabs
         self.tabWidget.clear()
 
         # Add tabs to the tab widget
-        self.tabWidget.addTab(self.csv_tab, "CSV Tool")
         self.tabWidget.addTab(self.noise_tab, "Noise Tool")
-        self.tabWidget.addTab(self.rename_tab, "Rename Tool")
 
         logger.info("Tab modules initialized and added to tab widget")
 
@@ -75,15 +130,9 @@ class ModularTools(QtWidgets.QWidget):
         logger.info("Modular Tools window closing - cleaning up tabs")
         try:
             # Clean up tabs explicitly
-            if hasattr(self, 'csv_tab'):
-                self.csv_tab = None
 
             if hasattr(self, 'noise_tab'):
                 self.noise_tab = None
-
-            if hasattr(self, 'rename_tab'):
-                self.rename_tab = None
-
             # Clear tab widget
             self.tabWidget.clear()
 
