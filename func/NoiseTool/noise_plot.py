@@ -224,7 +224,7 @@ class PlotProcessor(BaseProcessor):
                 with pd.ExcelWriter(output_file, engine='xlsxwriter') as writer:
                     modified_df.to_excel(writer, sheet_name=result['bias_id'], index=False)
                     removed_data.to_excel(writer, sheet_name='filtered', index=False)
-                
+
                 logger.debug(f"Completed processing file: {file_path}")
 
             logger.info("Filtered result export completed successfully")

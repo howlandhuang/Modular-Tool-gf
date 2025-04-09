@@ -19,6 +19,7 @@ from func.RenameTool.RenameToolTab import RenameToolTab
 # Initialize module logger
 logger = logging.getLogger(__name__)
 logging.getLogger('PyQt6.uic').setLevel(logging.ERROR) # Set a higher logging level for PyQt6.uic
+logging.getLogger('matplotlib').setLevel(logging.ERROR) # Set matplotlib logger to only show ERROR level
 
 class ModularTools(QtWidgets.QWidget):
     """
@@ -131,6 +132,11 @@ def main():
         listener = setup_logger(log_file)
         logger = logging.getLogger("ModularToolsStandalone")
         logger.info("Starting Modular Tools in standalone mode")
+
+        # Configure matplotlib loggers to only show errors
+        logging.getLogger('matplotlib').setLevel(logging.ERROR)
+        for module in ['font_manager', 'ticker', 'colorbar', 'backend_bases', 'figure', 'axes']:
+            logging.getLogger(f'matplotlib.{module}').setLevel(logging.ERROR)
 
         # Set global exception handler
         sys.excepthook = handle_exception
