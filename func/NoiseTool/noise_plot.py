@@ -55,10 +55,10 @@ class PlotProcessor(BaseProcessor):
 
         Args:
             noise_type: Type of noise to plot
-            fig_type: Plot type indicator
+            fig_type: Plot type
             save_name: Base name for saving plot
         """
-        logger.info(f"Creating plot for {noise_type} with type {fig_type}")
+        logger.info(f"Creating plot for {noise_type} with {fig_type}")
         try:
             # Create figure with wider width to accommodate legend
             fig = plt.figure(figsize=(14, 8))
@@ -76,7 +76,7 @@ class PlotProcessor(BaseProcessor):
                 # Format label on two lines to save horizontal space
                 label_base = f"{device_name}, {lot_id}\n{wafer_id}, {bias_id}"
 
-                if fig_type == 0:
+                if fig_type == 'by_site':
                     # Plot individual die data with reduced opacity
                     logger.debug("Creating site plot with individual dies")
                     for die in range(current_columns):
@@ -87,19 +87,19 @@ class PlotProcessor(BaseProcessor):
                     plt.plot(freq, df[f"{noise_type}_med"],
                         color=colors[idx],
                         label=f"{label_base}, median")
-                elif fig_type == 1:
+                elif fig_type == 'median_only':
                     # Plot median only
                     logger.debug("Creating median-only plot")
                     plt.plot(freq, df[f"{noise_type}_med"],
                         color=colors[idx],
                         label=f"{label_base}, median")
-                elif fig_type == 2:
+                elif fig_type == 'min_only':
                     # Plot minimum only
                     logger.debug("Creating minimum-only plot")
                     plt.plot(freq, df[f"{noise_type}_min"],
                         color=colors[idx],
                         label=f"{label_base}, min")
-                elif fig_type == 3:
+                elif fig_type == 'max_only':
                     # Plot maximum only
                     logger.debug("Creating maximum-only plot")
                     plt.plot(freq, df[f"{noise_type}_max"],
@@ -110,7 +110,7 @@ class PlotProcessor(BaseProcessor):
                     raise ValueError("Invalid fig_type")
 
             # Format and save plot
-            title = f"{noise_type} {'median only' if fig_type else 'by site'}"
+            title = f"{noise_type}_{fig_type}"
             self._figure_format(plt, title)
 
             # Adjust layout to make room for the legend
@@ -154,7 +154,7 @@ class PlotProcessor(BaseProcessor):
                 logger.warning(f"Failed to add watermark to plot: {str(e)}")
 
             if not self.config.debug_flag:
-                output_path = f'{self.config.output_path}/{save_name}_{title.replace("/", "_").replace("*", "x")}.png'
+                output_path = f'{self.config.output_path}/{save_name}_{title.replace("/", "_").replace("*", "x").replace("^", "_")}_0001.png'
                 logger.info(f"Saving plot to: {output_path}")
                 plt.savefig(output_path, dpi=300, bbox_inches='tight')
                 plt.close()
@@ -174,11 +174,7 @@ class PlotProcessor(BaseProcessor):
 
         Args:
             noise_type_list: List of noise types to plot ['Sid', 'Sid/id^2', 'Svg', 'Sid*f']
-            fig_type: Plot type indicator
-                     0: plot by site
-                     1: plot median only
-                     2: plot min only
-                     3: plot max only
+            fig_type: Plot type
             save_name: Base name for saving plot files
         """
         logger.info(f"Starting plot generation for noise types: {noise_type_list}")

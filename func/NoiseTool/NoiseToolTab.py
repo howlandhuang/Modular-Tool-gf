@@ -419,13 +419,13 @@ class NoiseToolTab(QWidget):
             sender = self.sender()
             logger.info(f"Generating plot from {sender.objectName()}")
             if sender == self.by_site_btn:
-                self.plot_processor.run_plots(self.noise_types, 0, save_name)
+                self.plot_processor.run_plots(self.noise_types, 'by_site', save_name)
             elif sender == self.med_only_btn:
-                self.plot_processor.run_plots(self.noise_types, 1, save_name)
+                self.plot_processor.run_plots(self.noise_types, 'median_only', save_name)
             elif sender == self.min_only_btn:
-                self.plot_processor.run_plots(self.noise_types, 2, save_name)
+                self.plot_processor.run_plots(self.noise_types, 'min_only', save_name)
             elif sender == self.max_only_btn:
-                self.plot_processor.run_plots(self.noise_types, 3, save_name)
+                self.plot_processor.run_plots(self.noise_types, 'max_only', save_name)
             else:
                 logger.error("Invalid button clicked")
                 raise ValueError("Invalid button clicked")
