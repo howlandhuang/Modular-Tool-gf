@@ -46,14 +46,14 @@ class StackProcessor(BaseProcessor):
 
         try:
             # Process each input file
-            for device_name, lot_id, wafer_id, bias_id, df in self.dataframes:
-                logger.debug(f"Processing file: {device_name} - {lot_id} - {wafer_id} - {bias_id}")
+            for info, df in self.dataframes:
+                logger.debug(f"Processing file: {info['device_name']} - {info['lot_id']} - {info['wafer_id']} - {info['bias_id']}")
 
                 # Add metadata columns
                 logger.debug("Adding metadata columns")
-                df.insert(0, 'Wafer', [f"{wafer_id}"] * df.shape[0])
-                df.insert(0, 'Device', [f"{device_name}"] * df.shape[0])
-                df.insert(0, 'Lot', [f"{lot_id}"] * df.shape[0])
+                df.insert(0, 'Wafer', [f"{info['wafer_id']}"] * df.shape[0])
+                df.insert(0, 'Device', [f"{info['device_name']}"] * df.shape[0])
+                df.insert(0, 'Lot', [f"{info['lot_id']}"] * df.shape[0])
                 columns_to_remove = ['Wafer', 'Device', 'Lot']
                 df.loc[self.config.basic_info_line_num-1, columns_to_remove] = np.nan
 

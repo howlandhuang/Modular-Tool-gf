@@ -23,7 +23,7 @@ INVALID_PATH_CHARS = r'[<>:"|?*\x00-\x1F]'
 SINGLE_FREQ_PATTERN = r'\s*(\d+\.?\d*)\s*'
 FREQ_LIST_PATTERN = r'\s*\d+\.?\d*\s*(?:,\s*\d+\.?\d*\s*)*'
 LOT_ID_PATTERN = r'(\d[a-zA-Z]{3}\d{5}(?:_(?:rt|RT|re|RE))?)'
-WAFER_ID_PATTERN = r'[wW](\#?\d+)'
+WAFER_ID_PATTERN = r'[wW]\#?(\d+)'
 BIAS_ID_PATTERN = r'(Bias\d+)'
 DEVICE_WIDTH_LENGTH_PATTERN = r'[wW](\d+(?:\.\d+)?)[lLxX](\d+(?:\.\d+)?)'
 RESERVED_NAMES = {
@@ -157,8 +157,24 @@ def parse_device_info(input_string: str) -> dict:
         # Create a copy of input string for manipulation
         remaining_string = os.path.basename(input_string)
 
+        # Search for bias (pattern: Bias1)
+        bias_match = re.search(BIAS_ID_PATTERN, remaining_string)
+        if bias_match:
+            result['bias_id'] = bias_match.group(1)
+            remaining_string = remaining_string.replace(bias_match.group(1), '')
+            logger.debug(f"Found bias: {result['bias_id']}")
+
+        # Search for width/length (pattern: W1.2xL3.4)
+        wl_match = re.search(DEVICE_WIDTH_LENGTH_PATTERN, remaining_string)
+        if wl_match:
+            result['width'] = wl_match.group(1)
+            result['length'] = wl_match.group(2)
+            # Replace the entire width/length pattern
+            remaining_string = remaining_string.replace(wl_match.group(0), '')
+            logger.debug(f"Found width: {result['width']}, length: {result['length']}")
+
         # Search for the last occurrence of lot_id
-        lot_matches = list(re.finditer(LOT_ID_PATTERN, os.path.dirname(input_string)))
+        lot_matches = list(re.finditer(LOT_ID_PATTERN, input_string))
         if lot_matches:
             # Get the last match
             last_lot_match = lot_matches[-1]
@@ -167,29 +183,13 @@ def parse_device_info(input_string: str) -> dict:
             logger.debug(f"Found lot_id: {result['lot_id']}")
 
         # Search for wafer_id
-        wafer_matches = list(re.finditer(WAFER_ID_PATTERN, os.path.dirname(input_string)))
+        wafer_matches = list(re.finditer(WAFER_ID_PATTERN, input_string))
         if wafer_matches:
             # Get the last match
             last_wafer_match = wafer_matches[-1]
             result['wafer_id'] = last_wafer_match.group(1)
-            remaining_string = remaining_string.replace(last_wafer_match.group(1), '')
+            remaining_string = remaining_string.replace(last_wafer_match.group(0), '')
             logger.debug(f"Found wafer_id: {result['wafer_id']}")
-
-        # Search for bias (pattern: Bias1)
-        bias_match = re.search(BIAS_ID_PATTERN, remaining_string)
-        if bias_match:
-            result['bias_id'] = bias_match.group(1)
-            remaining_string = remaining_string.replace(bias_match.group(1), '')
-            logger.debug(f"Found bias: {result['bias_id']}")
-
-        # Search for width/length (pattern: W1.2L3.4)
-        wl_match = re.search(DEVICE_WIDTH_LENGTH_PATTERN, remaining_string)
-        if wl_match:
-            result['width'] = wl_match.group(1)
-            result['length'] = wl_match.group(2)
-            # Replace the entire width/length pattern
-            remaining_string = remaining_string.replace(wl_match.group(0), '')
-            logger.debug(f"Found width: {result['width']}, length: {result['length']}")
 
         # Clean up remaining string and set as device name
         # 1. Remove file extension if present

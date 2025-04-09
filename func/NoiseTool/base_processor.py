@@ -76,7 +76,7 @@ class BaseProcessor:
                     logger.debug("Applying outlier filtering")
                     df, _ = remove_outliers(df, self.config.filter_threshold, self.config.filter_tolerance, noise_type)
 
-                self.dataframes.append((result['device_name'], result['lot_id'], result['wafer_id'], result['bias_id'], df))
+                self.dataframes.append((result, df))
                 logger.debug("File processing completed")
 
             logger.info(f"Successfully loaded {len(self.dataframes)} files")

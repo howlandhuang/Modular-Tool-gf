@@ -1,5 +1,11 @@
 Changelog
 
+Version 3.7.6 (2025-04-09)
+- Improved file name extraction logic for seperating device name, lot, wafer and size
+- Fixed debug mode logic error
+- Updated noise stack and plot parts to reflect the changes
+
+
 Version 3.7.5 (2025-04-09)
 - Optimized matplotlib logging to only show errors
 - Fixed missing minor grid in high scaling monitor

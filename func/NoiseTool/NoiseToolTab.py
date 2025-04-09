@@ -242,30 +242,41 @@ class NoiseToolTab(QWidget):
 
     def check_io_path(self) -> bool:
         """
-        Validate input and output paths based on mode.
+        Validate input and output paths based on current tab and mode.
 
-        In debug mode: only checks input path
-        In normal mode: checks both input and output paths
+        Requirements:
+        - Input path is always required
+        - Output path requirements depend on:
+          - Current tab (plot tab has special debug mode handling)
+          - Debug mode status (only in plot tab)
 
         Returns:
-            bool: True if paths are valid for current mode, False otherwise
+            bool: True if paths are valid, False otherwise
         """
-        logger.debug("Checking paths based on mode")
+        logger.debug("Checking input/output paths")
 
-        # Check input path first
+        # Always check input path first regardless of mode or tab
         if not self.uni_config.base_path:
             logger.warning("Missing input path")
             QMessageBox.warning(self, "No Input Selected", "Please select input files.")
             return False
 
-        # Additional output path check only for normal mode
-        if not self.debug_mode_box.isChecked():
-            if not self.uni_config.output_path:
-                logger.warning("Missing output path in normal mode")
-                QMessageBox.warning(self, "No Output Selected", "Please select output directory.")
-                return False
+        # Check output path based on current tab and mode
+        is_plot_tab = self.stack_widget.currentIndex() == 3
+        is_debug_mode = self.debug_mode_box.isChecked()
 
-        logger.debug(f"Path validation successful in {'debug' if self.debug_mode_box.isChecked() else 'normal'} mode")
+        # Special case: Plot tab in debug mode doesn't require output path
+        if is_plot_tab and is_debug_mode:
+            logger.debug("Plot tab in debug mode - output path not required")
+            return True
+
+        # All other cases require output path
+        if not self.uni_config.output_path:
+            logger.warning("Missing output path")
+            QMessageBox.warning(self, "No Output Selected", "Please select output directory.")
+            return False
+
+        logger.debug("Input/output paths validated successfully")
         return True
 
     def update_noise_types(self):
@@ -429,6 +440,7 @@ class NoiseToolTab(QWidget):
                 logger.error("Invalid button clicked")
                 raise ValueError("Invalid button clicked")
 
+            self.uni_config.debug_flag = False # Reset debug flag after plotting, so other tabs will check input&output paths correctly
             logger.info("Plot generation completed successfully")
 
         except Exception as e:

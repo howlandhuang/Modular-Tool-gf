@@ -133,15 +133,15 @@ class PlotProcessor(BaseProcessor):
             logger.debug("Figure created")
 
             # Plot data for each file
-            for idx, (device_name, lot_id, wafer_id, bias_id, df) in enumerate(self.dataframes):
-                logger.debug(f"Plotting data for {device_name} - {lot_id} - {wafer_id} - {bias_id}")
+            for idx, (info, df) in enumerate(self.dataframes):
+                logger.debug(f"Plotting data for {info}")
                 freq = df["Frequency"]
 
                 # Get columns for current noise type
                 current_columns = len([col for col in df.columns if col.endswith(f"_{noise_type}")])
 
                 # Format label on two lines to save horizontal space
-                label_base = f"{device_name}, {lot_id}\n{wafer_id}, {bias_id}"
+                label_base = f"{info['device_name']}_W{info['width']}xL{info['length']},\n{info['lot_id']}W{info['wafer_id']}_{info['bias_id']}"
 
                 if fig_type == 'by_site':
                     # Plot individual die data with reduced opacity
