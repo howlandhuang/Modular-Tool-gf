@@ -42,19 +42,6 @@
       </widget>
      </item>
      <item>
-      <widget class="QPushButton" name="stack_table_tab_btn">
-       <property name="maximumSize">
-        <size>
-         <width>75</width>
-         <height>25</height>
-        </size>
-       </property>
-       <property name="text">
-        <string>Stack Table</string>
-       </property>
-      </widget>
-     </item>
-     <item>
       <widget class="QPushButton" name="plot_tab_btn">
        <property name="maximumSize">
         <size>
@@ -311,37 +298,6 @@
              </widget>
             </item>
            </layout>
-          </widget>
-         </widget>
-         <widget class="QWidget" name="stack_page">
-          <widget class="QLabel" name="page2">
-           <property name="geometry">
-            <rect>
-             <x>10</x>
-             <y>5</y>
-             <width>91</width>
-             <height>16</height>
-            </rect>
-           </property>
-           <property name="text">
-            <string>Stack Control</string>
-           </property>
-          </widget>
-          <widget class="QPushButton" name="noise_stack_btn">
-           <property name="geometry">
-            <rect>
-             <x>10</x>
-             <y>180</y>
-             <width>91</width>
-             <height>23</height>
-            </rect>
-           </property>
-           <property name="styleSheet">
-            <string notr="true">background-color: rgb(255, 116, 118);</string>
-           </property>
-           <property name="text">
-            <string>Noise Stack</string>
-           </property>
           </widget>
          </widget>
          <widget class="QWidget" name="plot_page">

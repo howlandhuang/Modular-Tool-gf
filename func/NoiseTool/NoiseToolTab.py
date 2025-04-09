@@ -1,6 +1,6 @@
 """
 Noise Tool Tab module for Excel Tools application.
-Provides functionality for noise analysis with sub-tabs for data extraction, stack tables, and plotting.
+Provides functionality for noise analysis with sub-tabs for data extraction and plotting.
 """
 
 from PyQt6.QtWidgets import QWidget, QFileDialog, QMessageBox
@@ -12,9 +12,7 @@ from func import ulti
 from func.ulti import (
     get_user_input, validate_filename, ProcessingConfig
 )
-from func.NoiseTool import extract_noise
-from func.NoiseTool import stack_table
-from func.NoiseTool import noise_plot
+from func.NoiseTool import extract_noise, noise_plot
 
 # Initialize module logger
 logger = logging.getLogger(__name__)
@@ -55,12 +53,10 @@ class NoiseToolTab(QWidget):
 
             # Connect tab switching buttons
             self.data_extraction_tab_btn.clicked.connect(self.switch_data_extraction_tab)
-            self.stack_table_tab_btn.clicked.connect(self.switch_stack_table_tab)
             self.plot_tab_btn.clicked.connect(self.switch_plot_tab)
 
             # Connect action buttons
             self.extract_btn.clicked.connect(self.execute_raw_data_extraction)
-            self.noise_stack_btn.clicked.connect(self.execute_stack_noise_table)
             self.by_site_btn.clicked.connect(self.execute_plot)
             self.med_only_btn.clicked.connect(self.execute_plot)
             self.min_only_btn.clicked.connect(self.execute_plot)
@@ -77,8 +73,6 @@ class NoiseToolTab(QWidget):
             # Clear any existing processors first
             if hasattr(self, 'extract_processor'):
                 self.extract_processor = None
-            if hasattr(self, 'stack_processor'):
-                self.stack_processor = None
             if hasattr(self, 'plot_processor'):
                 self.plot_processor = None
 
@@ -101,7 +95,6 @@ class NoiseToolTab(QWidget):
             # Initialize processors
 
             self.extract_processor = extract_noise.DataProcessor(self.uni_config)
-            self.stack_processor = stack_table.StackProcessor(self.uni_config)
             self.plot_processor = noise_plot.PlotProcessor(self.uni_config)
             logger.debug("All processors initialized successfully")
         except Exception as e:
@@ -144,27 +137,11 @@ class NoiseToolTab(QWidget):
             logger.error(f"Error switching to data extraction tab: {str(e)}")
             QMessageBox.critical(self, "Error", f"Error switching tab:\n{str(e)}")
 
-    def switch_stack_table_tab(self):
-        """Switch to stack table tab."""
-        logger.info("Switching to stack table tab")
-        try:
-            self.stack_widget.setCurrentIndex(2)
-            self.input_selection_btn.setEnabled(True)
-            self.output_selection_btn.setEnabled(True)
-            self.reset_button_connection(self.input_selection_btn)
-            self.reset_button_connection(self.output_selection_btn)
-            self.input_selection_btn.clicked.connect(self.select_input)
-            self.output_selection_btn.clicked.connect(self.select_output)
-            logger.debug("Stack table tab setup complete")
-        except Exception as e:
-            logger.error(f"Error switching to stack table tab: {str(e)}")
-            QMessageBox.critical(self, "Error", f"Error switching tab:\n{str(e)}")
-
     def switch_plot_tab(self):
         """Switch to plot tab."""
         logger.info("Switching to plot tab")
         try:
-            self.stack_widget.setCurrentIndex(3)
+            self.stack_widget.setCurrentIndex(2)
             self.input_selection_btn.setEnabled(True)
             self.output_selection_btn.setEnabled(True)
             self.reset_button_connection(self.input_selection_btn)
@@ -301,31 +278,6 @@ class NoiseToolTab(QWidget):
             logger.error(f"Error during raw data extraction: {str(e)}")
             QMessageBox.critical(self, "Error", f"An error occurred during extraction:\n{str(e)}")
 
-    def execute_stack_noise_table(self):
-        """Execute table stacking process."""
-        logger.info("Starting table stacking process")
-        if not self.check_io_path():
-            return
-
-        try:
-            logger.debug("Using file name from user input")
-            save_name = get_user_input(
-                'Input File Name',
-                'Enter the file name:',
-                validate_filename
-            )
-            if save_name is None:
-                logger.warning("User cancelled or invalid file name input")
-                return
-
-            logger.info(f"Starting stacking with save name: {save_name}")
-            self.stack_processor.run_noise_table_stacking(save_name)
-            logger.info("Table stacking completed successfully")
-
-        except Exception as e:
-            logger.error(f"Error during table stacking: {str(e)}")
-            QMessageBox.critical(self, "Error", f"An error occurred during stacking:\n{str(e)}")
-
     def execute_plot(self):
         """Execute plotting process."""
         logger.info("Starting plot generation")
@@ -384,7 +336,6 @@ class NoiseToolTab(QWidget):
         try:
             # Clean up processors
             self.extract_processor = None
-            self.stack_processor = None
             self.plot_processor = None
 
             # Clean up configuration

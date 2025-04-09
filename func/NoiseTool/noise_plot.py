@@ -141,7 +141,7 @@ class PlotProcessor(BaseProcessor):
 
                     # Position watermark at bottom-left (10% from edge)
                     x_pos = xlimits[0] + 10
-                    y_pos = ylimits[0] * 10
+                    y_pos = ylimits[0] * 3
 
                     # Create annotation box
                     ab = AnnotationBbox(imagebox, (x_pos, y_pos), frameon=False, pad=0)

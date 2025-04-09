@@ -27,11 +27,6 @@
        <property name="currentIndex">
         <number>0</number>
        </property>
-       <widget class="QWidget" name="hall_tool">
-        <attribute name="title">
-         <string>CSV Tool</string>
-        </attribute>
-       </widget>
        <widget class="QWidget" name="noise_tool">
         <property name="mouseTracking">
          <bool>false</bool>
@@ -41,11 +36,6 @@
         </property>
         <attribute name="title">
          <string>Noise Tool</string>
-        </attribute>
-       </widget>
-       <widget class="QWidget" name="rename_tool">
-        <attribute name="title">
-         <string>Rename Tool</string>
         </attribute>
        </widget>
       </widget>
