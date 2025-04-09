@@ -7,8 +7,15 @@ import os
 import pandas as pd
 import matplotlib.pyplot as plt
 import logging
+import matplotlib.image as mpimg
+import numpy as np
+import matplotlib.ticker as ticker
+
+from pathlib import Path
+from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 from func.ulti import parse_device_info, ProcessingConfig, remove_outliers
 from func.NoiseTool.base_processor import BaseProcessor
+
 
 # Initialize module logger
 logger = logging.getLogger(__name__)
@@ -28,6 +35,20 @@ class PlotProcessor(BaseProcessor):
         """
         logger.info("Initializing PlotProcessor")
         super().__init__(config)
+
+        # Preload watermark if it exists
+        self.watermark = None
+        watermark_path = Path(__file__).parent.parent.parent / 'ui' / 'frcmos device.jpg'
+        if watermark_path.exists():
+            try:
+                self.watermark = mpimg.imread(str(watermark_path))
+                logger.debug("Watermark loaded successfully")
+            except Exception as e:
+                logger.warning(f"Failed to load watermark: {str(e)}")
+                self.watermark = None
+        else:
+            logger.warning(f"Watermark image not found at {watermark_path}")
+
         logger.debug("Plot processor initialized successfully")
 
     def _figure_format(self, plt, title):
@@ -39,15 +60,61 @@ class PlotProcessor(BaseProcessor):
             title: Plot title
         """
         logger.debug(f"Applying formatting to plot: {title}")
+
+        # Get current axis
+        ax = plt.gca()
+
+        # Configure logarithmic scale
         plt.xscale('log')
         plt.yscale('log')
-        plt.grid(True)
-        plt.grid(which='both', color='gray', linestyle='-.', linewidth=0.1)
+
+        # Ensure minor ticks are visible
+        ax.minorticks_on()
+
+        # Set specific locators for log scale
+        ax.yaxis.set_minor_locator(ticker.LogLocator(base=10.0, subs=np.arange(2, 10) * 0.1, numticks=100))
+        # Configure tick parameters
+        ax.tick_params(which='minor', length=4, color='k', width=1.0)
+        ax.tick_params(which='major', length=7, color='k', width=1.5)
+
+        ax.grid(False) # Clear any existing grid
+        ax.grid(which='major', color='gray', linestyle='-', linewidth=0.5, alpha=0.8)
+        ax.grid(which='minor', color='lightgray', linestyle=':', linewidth=0.4, alpha=0.8)
+
         plt.title(title)
         # Place legend outside the figure at the upper right corner with smaller font
         plt.legend(loc='upper left', bbox_to_anchor=(1.02, 1), borderaxespad=0,
                   fontsize='small', framealpha=0.9)
         logger.debug("Plot formatting applied")
+
+    def _add_watermark(self, ax):
+        """
+        Add watermark to the plot if available.
+
+        Args:
+            ax: matplotlib axis to add watermark to
+        """
+        if self.watermark is None:
+            return
+
+        try:
+            # Create offset image with transparency
+            imagebox = OffsetImage(self.watermark, zoom=0.3, alpha=0.5)
+
+            # Position in data coordinates
+            xlimits = ax.get_xlim()
+            ylimits = ax.get_ylim()
+
+            # Position watermark at bottom-left (10% from edge)
+            x_pos = xlimits[0] + 10
+            y_pos = ylimits[0] * 3
+
+            # Create and add annotation box
+            ab = AnnotationBbox(imagebox, (x_pos, y_pos), frameon=False, pad=0)
+            ax.add_artist(ab)
+            logger.debug("Watermark added to plot")
+        except Exception as e:
+            logger.warning(f"Failed to add watermark to plot: {str(e)}")
 
     def _plot_data(self, noise_type, fig_type, save_name):
         """
@@ -116,42 +183,8 @@ class PlotProcessor(BaseProcessor):
             # Adjust layout to make room for the legend
             plt.tight_layout()
             plt.subplots_adjust(right=0.75)  # Adjust right margin to make space for legend
-
-            # Add watermark to bottom-left corner
-            try:
-                from pathlib import Path
-                import matplotlib.image as mpimg
-                from matplotlib.offsetbox import OffsetImage, AnnotationBbox
-
-                # Get the watermark path
-                watermark_path = Path(__file__).parent.parent.parent / 'ui' / 'frcmos device.jpg'
-                logger.debug(f"Loading watermark from: {watermark_path}")
-
-                if watermark_path.exists():
-                    # Load the image
-                    watermark = mpimg.imread(str(watermark_path))
-
-                    # Create offset image with transparency
-                    imagebox = OffsetImage(watermark, zoom=0.3, alpha=0.5)  # Adjust zoom and alpha as needed
-
-                    # Position in data coordinates (use ax.get_xlim() and ax.get_ylim())
-                    ax = plt.gca()
-                    xlimits = ax.get_xlim()
-                    ylimits = ax.get_ylim()
-
-                    # Position watermark at bottom-left (10% from edge)
-                    x_pos = xlimits[0] + 10
-                    y_pos = ylimits[0] * 10
-
-                    # Create annotation box
-                    ab = AnnotationBbox(imagebox, (x_pos, y_pos), frameon=False, pad=0)
-                    ax.add_artist(ab)
-
-                    logger.debug("Watermark added to plot")
-                else:
-                    logger.warning(f"Watermark image not found at {watermark_path}")
-            except Exception as e:
-                logger.warning(f"Failed to add watermark to plot: {str(e)}")
+            # Add watermark
+            self._add_watermark(plt.gca())
 
             if not self.config.debug_flag:
                 output_path = f'{self.config.output_path}/{save_name}_{title.replace("/", "_").replace("*", "x").replace("^", "_")}_0001.png'

@@ -4,11 +4,12 @@ Provides a GUI interface for various Excel-related operations using a modular ta
 This module can be run directly as the main entry point for the application.
 """
 
-from PyQt6 import QtWidgets, uic
-from PyQt6.QtWidgets import QApplication, QMessageBox
 import logging
 import sys
 import time
+
+from PyQt6 import QtWidgets, uic
+from PyQt6.QtWidgets import QApplication, QMessageBox
 from pathlib import Path
 from multiprocessing import freeze_support
 from func.ulti import setup_logger
@@ -31,7 +32,7 @@ class ModularTools(QtWidgets.QWidget):
         """Initialize the Modular Tools widget and load UI."""
         super().__init__()
         logger.info("Initializing Modular Tools widget")
-        self.version = "3.7.4"
+        self.version = "3.7.5"
         self.setup_ui()
         self.initialize_tabs()
         logger.info("Modular Tools initialization complete")

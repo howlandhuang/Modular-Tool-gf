@@ -1,5 +1,13 @@
 Changelog
 
+Version 3.7.5 (2025-04-09)
+- Optimized matplotlib logging to only show errors
+- Fixed missing minor grid in high scaling monitor
+- Improved code organization by cleaning up imports
+- Optimized watermark functionality in plot generation
+- Removed duplicate imports
+
+
 Version 3.7.4 (2024-04-09)
 - Updated saved file name for plots
 - Improved plot codes readibility

@@ -3,19 +3,18 @@ Noise Tool Tab module for Excel Tools application.
 Provides functionality for noise analysis with sub-tabs for data extraction, stack tables, and plotting.
 """
 
-from PyQt6.QtWidgets import QWidget, QFileDialog, QMessageBox
-from PyQt6.QtCore import QStringListModel
-import logging, os
+import logging
+import os
+
 from pathlib import Path
 from PyQt6 import uic
-from func import ulti
+from PyQt6.QtCore import QStringListModel
+from PyQt6.QtWidgets import QWidget, QFileDialog, QMessageBox
+from func.NoiseTool import extract_noise, stack_table, noise_plot
 from func.ulti import (
     get_user_input, validate_filename, validate_single_number,
     validate_frequency_list, validate_range, ValidationError, ProcessingConfig
 )
-from func.NoiseTool import extract_noise
-from func.NoiseTool import stack_table
-from func.NoiseTool import noise_plot
 
 # Initialize module logger
 logger = logging.getLogger(__name__)

@@ -3,10 +3,13 @@ Stacked Table module for data organization.
 Provides functionality to stack and combine multiple data tables into a unified format.
 """
 
-import os, re
+import logging
+import os
+import re
+
 import numpy as np
 import pandas as pd
-import logging
+
 from func.ulti import ProcessingConfig
 from func.NoiseTool.base_processor import BaseProcessor
 
