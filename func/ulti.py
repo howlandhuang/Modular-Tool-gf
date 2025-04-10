@@ -129,7 +129,6 @@ def parse_device_info(input_string: str) -> dict:
 
     Args:
         input_string: File name to parse
-
     Returns:
         dict: Dictionary containing parsed components with keys:
             - 'device_name': Device name/identifier (with meaningful underscores preserved)
@@ -153,7 +152,6 @@ def parse_device_info(input_string: str) -> dict:
             'width': '',
             'length': ''
         }
-
         # Create a copy of input string for manipulation
         remaining_string = os.path.basename(input_string)
 
@@ -162,7 +160,7 @@ def parse_device_info(input_string: str) -> dict:
         if bias_match:
             result['bias_id'] = bias_match.group(1)
             remaining_string = remaining_string.replace(bias_match.group(1), '')
-            logger.debug(f"Found bias: {result['bias_id']}")
+            input_string = input_string.replace(bias_match.group(1), '')
 
         # Search for width/length (pattern: W1.2xL3.4)
         wl_match = re.search(DEVICE_WIDTH_LENGTH_PATTERN, remaining_string)
@@ -171,7 +169,7 @@ def parse_device_info(input_string: str) -> dict:
             result['length'] = wl_match.group(2)
             # Replace the entire width/length pattern
             remaining_string = remaining_string.replace(wl_match.group(0), '')
-            logger.debug(f"Found width: {result['width']}, length: {result['length']}")
+            input_string = input_string.replace(wl_match.group(0), '')
 
         # Search for the last occurrence of lot_id
         lot_matches = list(re.finditer(LOT_ID_PATTERN, input_string))
@@ -180,7 +178,7 @@ def parse_device_info(input_string: str) -> dict:
             last_lot_match = lot_matches[-1]
             result['lot_id'] = last_lot_match.group(1)
             remaining_string = remaining_string.replace(last_lot_match.group(1), '')
-            logger.debug(f"Found lot_id: {result['lot_id']}")
+            input_string = input_string.replace(last_lot_match.group(1), '')
 
         # Search for wafer_id
         wafer_matches = list(re.finditer(WAFER_ID_PATTERN, input_string))
@@ -189,7 +187,7 @@ def parse_device_info(input_string: str) -> dict:
             last_wafer_match = wafer_matches[-1]
             result['wafer_id'] = last_wafer_match.group(1)
             remaining_string = remaining_string.replace(last_wafer_match.group(0), '')
-            logger.debug(f"Found wafer_id: {result['wafer_id']}")
+            input_string = input_string.replace(last_wafer_match.group(0), '')
 
         # Clean up remaining string and set as device name
         # 1. Remove file extension if present
@@ -202,7 +200,7 @@ def parse_device_info(input_string: str) -> dict:
         remaining_string = remaining_string.rstrip('_').lstrip('_').strip()
 
         result['device_name'] = remaining_string
-        logger.debug(f"Extracted device name: {result['device_name']}")
+
         logger.debug(f"Successfully parsed: {result}")
         return result
 
