@@ -1,5 +1,13 @@
 Changelog
 
+Version 3.7.8 (2025-04-10)
+- Added 1/f plot option and cooresponding logic implements
+- Enhanced validation logic
+- Added file name validation when selecting input and output to prevent super long path
+- Improved noise tool tab switching logic
+- Reworked on UI design
+
+
 Version 3.7.7 (2025-04-10)
 - Fixed file name extraction logic by deleting extracted wafer info in both input and remained part synchronously
 - Deleted redundant logging during file name extraction

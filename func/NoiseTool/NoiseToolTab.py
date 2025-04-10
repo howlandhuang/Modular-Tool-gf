@@ -36,7 +36,7 @@ class NoiseToolTab(QWidget):
         logger.info("Excel Tools initialization complete")
 
     def setup_ui(self):
-        ui_path = Path(__file__).parent.parent.parent / 'UI' / 'noise_tool_tab.ui'
+        ui_path = Path(__file__).parent.parent.parent / 'ui' / 'noise_tool_tab.ui'
         logger.info(f"Loading UI from: {ui_path}")
         uic.loadUi(ui_path, self)
 
@@ -53,10 +53,13 @@ class NoiseToolTab(QWidget):
             self.input_selection_btn.setEnabled(False)
             self.output_selection_btn.setEnabled(False)
 
-            # Connect tab switching buttons
-            self.data_extraction_tab_btn.clicked.connect(self.switch_data_extraction_tab)
-            self.stack_table_tab_btn.clicked.connect(self.switch_stack_table_tab)
-            self.plot_tab_btn.clicked.connect(self.switch_plot_tab)
+            # Connect tab switching buttons with the generic method
+            self.data_extraction_tab_btn.clicked.connect(
+                lambda: self.switch_tab(1, self.select_extraction_input))
+            self.stack_table_tab_btn.clicked.connect(
+                lambda: self.switch_tab(2, self.select_input))
+            self.plot_tab_btn.clicked.connect(
+                lambda: self.switch_tab(3, self.select_input))
 
             # Connect action buttons
             self.extract_btn.clicked.connect(self.execute_raw_data_extraction)
@@ -67,11 +70,49 @@ class NoiseToolTab(QWidget):
             self.min_only_btn.clicked.connect(self.execute_plot)
             self.max_only_btn.clicked.connect(self.execute_plot)
             self.save_filtered_btn.clicked.connect(self.save_filtered_result)
+
+            # Set up mutually exclusive checkboxes
+            self.setup_mutually_exclusive_checkboxes(self.f_box, self.reciprocal_f_box)
+
             logger.debug("All UI connections established")
         except Exception as e:
             logger.error(f"Failed to setup UI connections: {str(e)}")
             raise
 
+    def setup_mutually_exclusive_checkboxes(self, box1, box2, default_first=True):
+        """
+        Setup two checkboxes to be mutually exclusive (like radio buttons).
+        
+        Args:
+            box1: First checkbox
+            box2: Second checkbox
+            default_first: Whether to check the first box by default
+        """
+        # Set default states
+        box1.setChecked(default_first)
+        box2.setChecked(not default_first)
+        
+        # Connect click handlers
+        box1.clicked.connect(lambda: self.handle_exclusive_checkboxes(box1, box2))
+        box2.clicked.connect(lambda: self.handle_exclusive_checkboxes(box2, box1))
+        
+        logger.debug(f"Setup mutually exclusive checkboxes: {box1.objectName()} and {box2.objectName()}")
+
+    def handle_exclusive_checkboxes(self, clicked_box, other_box):
+        """
+        Handle mutually exclusive checkbox behavior.
+        
+        Args:
+            clicked_box: The checkbox that was clicked
+            other_box: The other checkbox in the pair
+        """
+        if clicked_box.isChecked():
+            # If checking the clicked box, uncheck the other
+            other_box.setChecked(False)
+        else:
+            # If unchecking the clicked box, ensure the other is checked
+            other_box.setChecked(True)
+            
     def initialize_processors(self):
         """Initialize data processing configurations and processors."""
         logger.debug("Initializing data processors")
@@ -101,7 +142,6 @@ class NoiseToolTab(QWidget):
             logger.debug("Configuration initialized")
 
             # Initialize processors
-
             self.extract_processor = extract_noise.DataProcessor(self.uni_config)
             self.stack_processor = stack_table.StackProcessor(self.uni_config)
             self.plot_processor = noise_plot.PlotProcessor(self.uni_config)
@@ -130,52 +170,37 @@ class NoiseToolTab(QWidget):
         except Exception as e:
             logger.error(f"Error resetting button connections: {str(e)}")
 
-    def switch_data_extraction_tab(self):
-        """Switch to data extraction tab."""
-        logger.info("Switching to data extraction tab")
+    def switch_tab(self, tab_index, input_handler=None):
+        """
+        Generic method to switch between tabs.
+        
+        Args:
+            tab_index: Index of the tab to switch to
+            input_handler: Function to handle input selection for this tab
+        """
+        tab_names = {
+            1: "data extraction",
+            2: "stack table",
+            3: "plot"
+        }
+        tab_name = tab_names.get(tab_index, f"index {tab_index}")
+        
+        logger.info(f"Switching to {tab_name} tab")
         try:
-            self.stack_widget.setCurrentIndex(1)
+            self.stack_widget.setCurrentIndex(tab_index)
             self.input_selection_btn.setEnabled(True)
             self.output_selection_btn.setEnabled(True)
+            
+            # Reset and reconnect buttons
             self.reset_button_connection(self.input_selection_btn)
             self.reset_button_connection(self.output_selection_btn)
-            self.input_selection_btn.clicked.connect(self.select_extraction_input)
+            
+            if input_handler:
+                self.input_selection_btn.clicked.connect(input_handler)
             self.output_selection_btn.clicked.connect(self.select_output)
-            logger.debug("Data extraction tab setup complete")
+            
         except Exception as e:
-            logger.error(f"Error switching to data extraction tab: {str(e)}")
-            QMessageBox.critical(self, "Error", f"Error switching tab:\n{str(e)}")
-
-    def switch_stack_table_tab(self):
-        """Switch to stack table tab."""
-        logger.info("Switching to stack table tab")
-        try:
-            self.stack_widget.setCurrentIndex(2)
-            self.input_selection_btn.setEnabled(True)
-            self.output_selection_btn.setEnabled(True)
-            self.reset_button_connection(self.input_selection_btn)
-            self.reset_button_connection(self.output_selection_btn)
-            self.input_selection_btn.clicked.connect(self.select_input)
-            self.output_selection_btn.clicked.connect(self.select_output)
-            logger.debug("Stack table tab setup complete")
-        except Exception as e:
-            logger.error(f"Error switching to stack table tab: {str(e)}")
-            QMessageBox.critical(self, "Error", f"Error switching tab:\n{str(e)}")
-
-    def switch_plot_tab(self):
-        """Switch to plot tab."""
-        logger.info("Switching to plot tab")
-        try:
-            self.stack_widget.setCurrentIndex(3)
-            self.input_selection_btn.setEnabled(True)
-            self.output_selection_btn.setEnabled(True)
-            self.reset_button_connection(self.input_selection_btn)
-            self.reset_button_connection(self.output_selection_btn)
-            self.input_selection_btn.clicked.connect(self.select_input)
-            self.output_selection_btn.clicked.connect(self.select_output)
-            logger.debug("Plot tab setup complete")
-        except Exception as e:
-            logger.error(f"Error switching to plot tab: {str(e)}")
+            logger.error(f"Error switching to {tab_name} tab: {str(e)}")
             QMessageBox.critical(self, "Error", f"Error switching tab:\n{str(e)}")
 
     def update_input_display(self):
@@ -205,6 +230,7 @@ class NoiseToolTab(QWidget):
             QFileDialog.Option.ShowDirsOnly
         )
         if selected_folder:
+            selected_folder = validate_filename(selected_folder)
             logger.info(f"Selected input folder: {selected_folder}")
             self.uni_config.base_path = selected_folder
             self.update_input_display()
@@ -221,6 +247,7 @@ class NoiseToolTab(QWidget):
         if selected_files:
             logger.info(f"Selected {len(selected_files)} input files")
             for f in selected_files:
+                f = validate_filename(f)
                 logger.info(f"Selected file: {f}")
             self.uni_config.base_path = selected_files
             self.update_input_display()
@@ -235,6 +262,7 @@ class NoiseToolTab(QWidget):
             QFileDialog.Option.ShowDirsOnly
         )
         if selected_folder:
+            selected_folder = validate_filename(selected_folder)
             logger.info(f"Selected output folder: {selected_folder}")
             self.uni_config.output_path = selected_folder
             self.output_path_text.setPlainText(selected_folder)
@@ -286,12 +314,14 @@ class NoiseToolTab(QWidget):
             self.noise_types.append('Sid')
         if self.sid_id2_box.isChecked():
             self.noise_types.append('Sid/id^2')
-        if self.svg_box.isChecked():
-            self.noise_types.append('Svg')
         if self.sid_f_box.isChecked():
             self.noise_types.append('Sid*f')
+        if self.svg_box.isChecked():
+            self.noise_types.append('Svg')
         if self.svg_norm_box.isChecked():
             self.noise_types.append('Svg_norm')
+        if self.svg_f_box.isChecked():
+            self.noise_types.append('Svg*f')
 
         logger.debug(f"Selected noise types: {self.noise_types}")
         if not self.noise_types:
@@ -425,17 +455,25 @@ class NoiseToolTab(QWidget):
             else:
                 self.uni_config.filter_outliers_flag = False
 
+            freq_type = None
+            if self.f_box.isChecked() and not self.reciprocal_f_box.isChecked():
+                freq_type = 'f'
+            elif self.reciprocal_f_box.isChecked() and not self.f_box.isChecked():
+                freq_type = '1/f'
+            else:
+                raise ValueError("Invalid frequency type")
+
             # Execute plot based on button clicked
             sender = self.sender()
             logger.info(f"Generating plot from {sender.objectName()}")
             if sender == self.by_site_btn:
-                self.plot_processor.run_plots(self.noise_types, 'by_site', save_name)
+                self.plot_processor.run_plots(self.noise_types, freq_type, 'by_site', save_name)
             elif sender == self.med_only_btn:
-                self.plot_processor.run_plots(self.noise_types, 'median_only', save_name)
+                self.plot_processor.run_plots(self.noise_types, freq_type, 'median_only', save_name)
             elif sender == self.min_only_btn:
-                self.plot_processor.run_plots(self.noise_types, 'min_only', save_name)
+                self.plot_processor.run_plots(self.noise_types, freq_type, 'min_only', save_name)
             elif sender == self.max_only_btn:
-                self.plot_processor.run_plots(self.noise_types, 'max_only', save_name)
+                self.plot_processor.run_plots(self.noise_types, freq_type, 'max_only', save_name)
             else:
                 logger.error("Invalid button clicked")
                 raise ValueError("Invalid button clicked")

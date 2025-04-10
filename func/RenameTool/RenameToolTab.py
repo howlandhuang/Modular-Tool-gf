@@ -10,7 +10,7 @@ from PyQt6.QtWidgets import QWidget, QFileDialog, QMessageBox, QDialog
 from PyQt6.QtCore import Qt
 from pathlib import Path
 from PyQt6 import uic
-from func import ulti
+from func.ulti import validate_filename
 
 def add_prefix_postfix(folder_path, prefix="", postfix="", file_filter=None):
     """
@@ -184,7 +184,7 @@ class RenameToolTab(QWidget):
 
     def setup_ui(self):
         """Load and setup the UI."""
-        ui_path = Path(__file__).parent.parent.parent / 'UI' / 'rename_tool_tab.ui'
+        ui_path = Path(__file__).parent.parent.parent / 'ui' / 'rename_tool_tab.ui'
         logger.info(f"Loading UI from: {ui_path}")
         uic.loadUi(ui_path, self)
 
@@ -304,7 +304,7 @@ class RenameToolTab(QWidget):
                 extension = name_parts[1] if len(name_parts) > 1 else ""
                 new_name = f"{prefix}{base_name}{postfix}{extension}"
 
-                if not ulti.validate_filename(new_name):
+                if not validate_filename(new_name):
                     QMessageBox.warning(self, "Invalid Filename",
                                       f"The new filename '{new_name}' is invalid. Please check your input.")
                     return
@@ -358,7 +358,7 @@ class RenameToolTab(QWidget):
 
                 if re.search(pattern, filename):
                     new_name = re.sub(pattern, replacement, filename)
-                    if not ulti.validate_filename(new_name):
+                    if not validate_filename(new_name):
                         QMessageBox.warning(self, "Invalid Filename",
                                           f"The new filename '{new_name}' is invalid. Please check your input.")
                         return
@@ -417,7 +417,7 @@ class RenameToolTab(QWidget):
                         groups = {f"g{i+1}": group for i, group in enumerate(match.groups())}
                         groups["g0"] = match.group(0)
                         new_name = eval(transform_expr, {"__builtins__": {}}, groups)
-                        if not ulti.validate_filename(str(new_name)):
+                        if not validate_filename(str(new_name)):
                             QMessageBox.warning(self, "Invalid Filename",
                                               f"The new filename '{new_name}' is invalid. Please check your input.")
                             return

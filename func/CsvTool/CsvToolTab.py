@@ -35,8 +35,8 @@ class CSVToolTab(QWidget):
         self.input_files_listview.setModel(self.input_files_model)
 
     def setup_ui(self):
-        """Set up the UI components for the CSV Tool tab."""
-        ui_path = Path(__file__).parent.parent.parent / 'UI' / 'csv_tool_tab.ui'
+        """Load the UI file."""
+        ui_path = Path(__file__).parent.parent.parent / 'ui' / 'csv_tool_tab.ui'
         logger.info(f"Loading UI from: {ui_path}")
         try:
             uic.loadUi(ui_path, self)

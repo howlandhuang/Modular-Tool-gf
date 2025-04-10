@@ -15,15 +15,15 @@ from dataclasses import dataclass
 from logging.handlers import QueueHandler, QueueListener
 from queue import Queue
 from PyQt6.QtWidgets import QWidget, QInputDialog, QMessageBox
-from typing import Any, Callable, Optional, List
+from typing import Any, Callable, Optional, List, Dict, Union
 from functools import wraps
 
 # Validation patterns for input validation
 INVALID_PATH_CHARS = r'[<>:"|?*\x00-\x1F]'
-SINGLE_FREQ_PATTERN = r'\s*(\d+\.?\d*)\s*'
-FREQ_LIST_PATTERN = r'\s*\d+\.?\d*\s*(?:,\s*\d+\.?\d*\s*)*'
+SINGLE_NUMBER_PATTERN = r'^\s*(\d+(?:\.\d+)?)\s*$'
+FREQ_LIST_PATTERN = r'\s*\d+(?:\.\d+)?\s*(?:,\s*\d+(?:\.\d+)?\s*)*'
 LOT_ID_PATTERN = r'(\d[a-zA-Z]{3}\d{5}(?:_(?:rt|RT|re|RE))?)'
-WAFER_ID_PATTERN = r'[wW]\#?(\d+)'
+WAFER_ID_PATTERN = r'[wW]#?(\d+)'
 BIAS_ID_PATTERN = r'(Bias\d+)'
 DEVICE_WIDTH_LENGTH_PATTERN = r'[wW](\d+(?:\.\d+)?)[lLxX](\d+(?:\.\d+)?)'
 RESERVED_NAMES = {
@@ -123,15 +123,16 @@ def lr(new_x: list, new_y: list):
         logger.error(f"Error in linear regression calculation: {str(e)}")
         raise
 
-def parse_device_info(input_string: str) -> dict:
+def parse_device_info(input_string: str) -> Dict[str, str]:
     """
     Parse wafer file name into components.
+    This is the primary function for extracting device information from filenames.
 
     Args:
         input_string: File name to parse
     Returns:
         dict: Dictionary containing parsed components with keys:
-            - 'device_name': Device name/identifier (with meaningful underscores preserved)
+            - 'device_name': Device name/identifier
             - 'lot_id': Lot identification number
             - 'wafer_id': Wafer identification number
             - 'bias': Bias information
@@ -141,7 +142,7 @@ def parse_device_info(input_string: str) -> dict:
     Raises:
         ValueError: If file name format is invalid
     """
-    logger.debug(f"Parsing wafer file name: {input_string}")
+    logger.debug(f"Parsing device info from: {input_string}")
     try:
         # Initialize result dictionary
         result = {
@@ -216,14 +217,15 @@ def remove_outliers(df, threshold: float, tolerance: float, noise_type: list):
         df: Input DataFrame
         threshold: Threshold for outlier detection
         tolerance: Tolerance range for values
+        noise_type: List of noise types to process
 
     Returns:
         tuple: (DataFrame, DataFrame) Filtered DataFrame with outliers removed and removed DataFrame
     """
     logger.info(f"Starting outlier removal with threshold={threshold}, tolerance={tolerance}")
-    if threshold is None or tolerance is None:
+    if (threshold is None) or (tolerance is None):
         logger.debug("No threshold or tolerance specified, returning original DataFrame")
-        return df
+        return df, pd.DataFrame()
 
     try:
         df_removed = pd.DataFrame()
@@ -292,15 +294,15 @@ class CsvProcessingConfig:
 @dataclass
 class ProcessingConfig:
     """Configuration class for data processing parameters."""
-    base_path: list
-    output_path: str
+    base_path: Union[List[str], str, None]
+    output_path: Optional[str]
     basic_info_line_num: int
-    pred_range_lower: int
-    pred_range_upper: int
-    interest_freq: list
+    pred_range_lower: Optional[int]
+    pred_range_upper: Optional[int]
+    interest_freq: Optional[List[float]]
     debug_flag: bool
     filter_outliers_flag: bool
-    filter_threshold: int
+    filter_threshold: float
     filter_tolerance: float
     auto_size: bool
 
@@ -391,19 +393,7 @@ def validate_filename(value: str) -> str:
 @handle_validation
 def validate_single_number(value: str) -> float:
     """Validate single number input."""
-    if not re.match(SINGLE_FREQ_PATTERN, value):
-        raise ValidationError("Invalid format. Please provide a single number")
-
-    num = float(value)
-    if num < 0:
-        raise ValidationError("Input cannot be negative")
-
-    return num
-
-@handle_validation
-def validate_width_length(value: str) -> float:
-    """Validate width/length input."""
-    if not re.match(DEVICE_WIDTH_LENGTH_PATTERN, value):
+    if not re.match(SINGLE_NUMBER_PATTERN, value):
         raise ValidationError("Invalid format. Please provide a single number")
 
     num = float(value)
@@ -415,19 +405,16 @@ def validate_width_length(value: str) -> float:
 @handle_validation
 def validate_frequency_list(value: str) -> list[float]:
     """Validate frequency list input."""
-    if ',,' in value:
-        raise ValidationError("Double commas are not allowed")
+    if re.search(r',{2,}', value):
+        raise ValidationError("Multiple consecutive commas are not allowed")
 
     if value.startswith(',') or value.endswith(','):
         raise ValidationError("Input cannot start or end with a comma")
 
-    if not re.match(FREQ_LIST_PATTERN, value):
-        raise ValidationError("Invalid format. Use comma-separated numbers only")
-
     frequencies = []
     for num in value.split(','):
         try:
-            freq = float(num.strip())
+            freq = float(validate_single_number(num.strip()))
             if freq < 0:
                 raise ValidationError(f"Negative frequency ({freq}) is not allowed")
             frequencies.append(freq)

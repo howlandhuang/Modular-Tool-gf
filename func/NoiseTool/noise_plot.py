@@ -116,12 +116,13 @@ class PlotProcessor(BaseProcessor):
         except Exception as e:
             logger.warning(f"Failed to add watermark to plot: {str(e)}")
 
-    def _plot_data(self, noise_type, fig_type, save_name):
+    def _plot_data(self, noise_type, freq_type, fig_type, save_name):
         """
         Create and save a single plot.
 
         Args:
             noise_type: Type of noise to plot
+            freq_type: Frequency type
             fig_type: Plot type
             save_name: Base name for saving plot
         """
@@ -136,7 +137,8 @@ class PlotProcessor(BaseProcessor):
             for idx, (info, df) in enumerate(self.dataframes):
                 logger.debug(f"Plotting data for {info}")
                 freq = df["Frequency"]
-
+                if freq_type == '1/f':
+                    freq = 1 / freq
                 # Get columns for current noise type
                 current_columns = len([col for col in df.columns if col.endswith(f"_{noise_type}")])
 
@@ -201,16 +203,17 @@ class PlotProcessor(BaseProcessor):
             logger.error(f"Error creating plot: {str(e)}")
             raise
 
-    def run_plots(self, noise_type_list, fig_type, save_name):
+    def run_plots(self, noise_type_list, freq_type, fig_type, save_name):
         """
         Create and save noise analysis plots.
 
         Args:
             noise_type_list: List of noise types to plot ['Sid', 'Sid/id^2', 'Svg', 'Sid*f']
+            freq_type: Frequency type ['f', '1/f']
             fig_type: Plot type
             save_name: Base name for saving plot files
         """
-        logger.info(f"Starting plot generation for noise types: {noise_type_list}")
+        logger.info(f"Starting plot generation for noise types: {noise_type_list}, freq type: {freq_type}")
         logger.debug(f"Plot type: {fig_type}, Save name: {save_name}")
 
         # Load and prepare data
@@ -221,7 +224,7 @@ class PlotProcessor(BaseProcessor):
         # Create plots for each noise type
         for noise_type in noise_type_list:
             logger.info(f"Creating plot for noise type: {noise_type}")
-            self._plot_data(noise_type, fig_type, save_name)
+            self._plot_data(noise_type, freq_type, fig_type, save_name)
 
         logger.info("Plot generation completed successfully")
 

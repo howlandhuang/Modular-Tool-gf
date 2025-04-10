@@ -19,7 +19,7 @@ from multiprocessing import freeze_support
 from typing import List
 from func.ulti import (
     lr, ProcessingConfig,
-    validate_wafer_id, get_user_input, validate_lot_id, validate_width_length,
+    validate_wafer_id, get_user_input, validate_lot_id, validate_single_number,
     parse_device_info, LOT_ID_PATTERN
 )
 
@@ -220,12 +220,12 @@ class DataProcessor:
                     width = get_user_input(
                         f'{device} - Width Input',
                         f'{device}\nPlease input device width:',
-                        validate_width_length
+                        validate_single_number
                     )
                     length = get_user_input(
                         f'{device} - Length Input',
                         f'{device}\nPlease input device length:',
-                        validate_width_length
+                        validate_single_number
                     )
                     if width is None or length is None:
                         logger.warning(f"Skipping device {device} due to invalid width or length")
