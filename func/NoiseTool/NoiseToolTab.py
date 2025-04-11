@@ -82,7 +82,7 @@ class NoiseToolTab(QWidget):
     def setup_mutually_exclusive_checkboxes(self, box1, box2, default_first=True):
         """
         Setup two checkboxes to be mutually exclusive (like radio buttons).
-        
+
         Args:
             box1: First checkbox
             box2: Second checkbox
@@ -91,17 +91,17 @@ class NoiseToolTab(QWidget):
         # Set default states
         box1.setChecked(default_first)
         box2.setChecked(not default_first)
-        
+
         # Connect click handlers
         box1.clicked.connect(lambda: self.handle_exclusive_checkboxes(box1, box2))
         box2.clicked.connect(lambda: self.handle_exclusive_checkboxes(box2, box1))
-        
+
         logger.debug(f"Setup mutually exclusive checkboxes: {box1.objectName()} and {box2.objectName()}")
 
     def handle_exclusive_checkboxes(self, clicked_box, other_box):
         """
         Handle mutually exclusive checkbox behavior.
-        
+
         Args:
             clicked_box: The checkbox that was clicked
             other_box: The other checkbox in the pair
@@ -112,7 +112,7 @@ class NoiseToolTab(QWidget):
         else:
             # If unchecking the clicked box, ensure the other is checked
             other_box.setChecked(True)
-            
+
     def initialize_processors(self):
         """Initialize data processing configurations and processors."""
         logger.debug("Initializing data processors")
@@ -173,7 +173,7 @@ class NoiseToolTab(QWidget):
     def switch_tab(self, tab_index, input_handler=None):
         """
         Generic method to switch between tabs.
-        
+
         Args:
             tab_index: Index of the tab to switch to
             input_handler: Function to handle input selection for this tab
@@ -184,21 +184,21 @@ class NoiseToolTab(QWidget):
             3: "plot"
         }
         tab_name = tab_names.get(tab_index, f"index {tab_index}")
-        
+
         logger.info(f"Switching to {tab_name} tab")
         try:
             self.stack_widget.setCurrentIndex(tab_index)
             self.input_selection_btn.setEnabled(True)
             self.output_selection_btn.setEnabled(True)
-            
+
             # Reset and reconnect buttons
             self.reset_button_connection(self.input_selection_btn)
             self.reset_button_connection(self.output_selection_btn)
-            
+
             if input_handler:
                 self.input_selection_btn.clicked.connect(input_handler)
             self.output_selection_btn.clicked.connect(self.select_output)
-            
+
         except Exception as e:
             logger.error(f"Error switching to {tab_name} tab: {str(e)}")
             QMessageBox.critical(self, "Error", f"Error switching tab:\n{str(e)}")
@@ -230,7 +230,6 @@ class NoiseToolTab(QWidget):
             QFileDialog.Option.ShowDirsOnly
         )
         if selected_folder:
-            selected_folder = validate_filename(selected_folder)
             logger.info(f"Selected input folder: {selected_folder}")
             self.uni_config.base_path = selected_folder
             self.update_input_display()
@@ -247,7 +246,6 @@ class NoiseToolTab(QWidget):
         if selected_files:
             logger.info(f"Selected {len(selected_files)} input files")
             for f in selected_files:
-                f = validate_filename(f)
                 logger.info(f"Selected file: {f}")
             self.uni_config.base_path = selected_files
             self.update_input_display()
@@ -262,7 +260,6 @@ class NoiseToolTab(QWidget):
             QFileDialog.Option.ShowDirsOnly
         )
         if selected_folder:
-            selected_folder = validate_filename(selected_folder)
             logger.info(f"Selected output folder: {selected_folder}")
             self.uni_config.output_path = selected_folder
             self.output_path_text.setPlainText(selected_folder)

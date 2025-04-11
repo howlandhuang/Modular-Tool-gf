@@ -238,11 +238,13 @@ def remove_outliers(df, threshold: float, tolerance: float, noise_type: list):
         for condition in noise_type:
             logger.debug(f"Processing noise type: {condition}")
 
+            if len([col for col in noise_columns if col.endswith(f"_{condition}")]) == 0:
+                logger.debug(f"No columns found for noise type: {condition}")
+                # Fall back to multiplier mode (original data * multiplier such as frequency)
+                condition = condition.replace('*f', '')
+
             # Get columns for current noise type
             type_cols = [col for col in noise_columns if col.endswith(f"_{condition}")]
-            if not type_cols:
-                logger.debug(f"No columns found for noise type: {condition}")
-                continue
 
             median_col = condition + "_med"
 

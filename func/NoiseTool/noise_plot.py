@@ -105,8 +105,8 @@ class PlotProcessor(BaseProcessor):
             xlimits = ax.get_xlim()
             ylimits = ax.get_ylim()
 
-            # Position watermark at bottom-left (10% from edge)
-            x_pos = xlimits[0] + 10
+            # Position watermark at bottom-left
+            x_pos = xlimits[0] * 10
             y_pos = ylimits[0] * 3
 
             # Create and add annotation box
@@ -133,6 +133,15 @@ class PlotProcessor(BaseProcessor):
             colors = plt.cm.tab10(range(10))
             logger.debug("Figure created")
 
+            # Check if we need to multiply by frequency
+            original_noise_type = noise_type
+            multiply_by_freq = False
+
+            if noise_type == 'Svg*f':
+                noise_type = 'Svg'
+                multiply_by_freq = True
+                logger.debug("Will multiply Svg data by frequency")
+
             # Plot data for each file
             for idx, (info, df) in enumerate(self.dataframes):
                 logger.debug(f"Plotting data for {info}")
@@ -149,29 +158,44 @@ class PlotProcessor(BaseProcessor):
                     # Plot individual die data with reduced opacity
                     logger.debug("Creating site plot with individual dies")
                     for die in range(current_columns):
-                        plt.plot(freq, df[f"Die{die+1}_{noise_type}"],
+                        die_data = df[f"Die{die+1}_{noise_type}"]
+                        if multiply_by_freq:
+                            die_data = die_data * df["Frequency"]
+                        plt.plot(freq, die_data,
                               color=(*colors[idx][:3], 0.1),
                               label=label_base if die == 0 else "")
                     # Plot median with full opacity
-                    plt.plot(freq, df[f"{noise_type}_med"],
+                    median_data = df[f"{noise_type}_med"]
+                    if multiply_by_freq:
+                        median_data = median_data * df["Frequency"]
+                    plt.plot(freq, median_data,
                         color=colors[idx],
                         label=f"{label_base}, median")
                 elif fig_type == 'median_only':
                     # Plot median only
                     logger.debug("Creating median-only plot")
-                    plt.plot(freq, df[f"{noise_type}_med"],
+                    median_data = df[f"{noise_type}_med"]
+                    if multiply_by_freq:
+                        median_data = median_data * df["Frequency"]
+                    plt.plot(freq, median_data,
                         color=colors[idx],
                         label=f"{label_base}, median")
                 elif fig_type == 'min_only':
                     # Plot minimum only
                     logger.debug("Creating minimum-only plot")
-                    plt.plot(freq, df[f"{noise_type}_min"],
+                    min_data = df[f"{noise_type}_min"]
+                    if multiply_by_freq:
+                        min_data = min_data * df["Frequency"]
+                    plt.plot(freq, min_data,
                         color=colors[idx],
                         label=f"{label_base}, min")
                 elif fig_type == 'max_only':
                     # Plot maximum only
                     logger.debug("Creating maximum-only plot")
-                    plt.plot(freq, df[f"{noise_type}_max"],
+                    max_data = df[f"{noise_type}_max"]
+                    if multiply_by_freq:
+                        max_data = max_data * df["Frequency"]
+                    plt.plot(freq, max_data,
                         color=colors[idx],
                         label=f"{label_base}, max")
                 else:
@@ -179,7 +203,7 @@ class PlotProcessor(BaseProcessor):
                     raise ValueError("Invalid fig_type")
 
             # Format and save plot
-            title = f"{noise_type}_{fig_type}"
+            title = original_noise_type + "_" + fig_type
             self._figure_format(plt, title)
 
             # Adjust layout to make room for the legend
@@ -208,7 +232,7 @@ class PlotProcessor(BaseProcessor):
         Create and save noise analysis plots.
 
         Args:
-            noise_type_list: List of noise types to plot ['Sid', 'Sid/id^2', 'Svg', 'Sid*f']
+            noise_type_list: List of noise types to plot ['Sid', 'Sid/id^2', 'Svg', 'Sid*f', 'Svg_norm', 'Svg*f']
             freq_type: Frequency type ['f', '1/f']
             fig_type: Plot type
             save_name: Base name for saving plot files

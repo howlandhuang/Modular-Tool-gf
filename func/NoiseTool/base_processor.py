@@ -47,6 +47,7 @@ class BaseProcessor:
 
         Args:
             for_plot: In plot process or not
+            noise_type: List of noise types to load, only when for_plot is True
 
         Returns:
             bool: True if data loading successful
@@ -59,22 +60,21 @@ class BaseProcessor:
             # Load data from all input files
             for file_path in self.config.base_path:
                 logger.debug(f"Loading file: {file_path}")
-                # Read Excel file
-                df = pd.read_excel(file_path)
-                logger.debug(f"Successfully read file with shape: {df.shape}")
-
-                # Skip header rows if in plot
-                if for_plot:
-                    df = df.iloc[self.config.basic_info_line_num:].reset_index(drop=True)
-
                 # Parse file name for metadata
                 result = parse_device_info(os.path.basename(file_path))
                 logger.debug(f"Extracted metadata - device: {result['device_name']}, lot: {result['lot_id']}, wafer: {result['wafer_id']}, bias: {result['bias_id']}")
 
-                # Apply outlier filtering if enabled and requested
-                if for_plot and self.config.filter_outliers_flag:
-                    logger.debug("Applying outlier filtering")
-                    df, _ = remove_outliers(df, self.config.filter_threshold, self.config.filter_tolerance, noise_type)
+                # Read Excel file
+                df = pd.read_excel(file_path)
+
+                # Skip part1 if in plot
+                if for_plot:
+                    df = df.iloc[self.config.basic_info_line_num:].reset_index(drop=True)
+
+                    # Apply outlier filtering if enabled and requested
+                    if self.config.filter_outliers_flag:
+                        logger.debug("Applying outlier filtering")
+                        df, _ = remove_outliers(df, self.config.filter_threshold, self.config.filter_tolerance, noise_type)
 
                 self.dataframes.append((result, df))
                 logger.debug("File processing completed")
