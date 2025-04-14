@@ -130,7 +130,9 @@ class PlotProcessor(BaseProcessor):
         try:
             # Create figure with wider width to accommodate legend
             fig = plt.figure(figsize=(14, 8))
-            colors = plt.cm.tab10(range(10))
+            colors = plt.cm.tab20(range(20))  # Use tab20 for up to 20 distinct colors
+            if len(self.dataframes) > 20:
+                colors = plt.cm.viridis(np.linspace(0, 1, len(self.dataframes)))
             logger.debug("Figure created")
 
             # Check if we need to multiply by frequency

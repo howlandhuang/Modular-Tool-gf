@@ -334,8 +334,15 @@ class NoiseToolTab(QWidget):
 
         try:
             logger.debug("Configuring extraction parameters")
+
             # Get configuration from UI
-            self.uni_config.auto_size = self.auto_size_box.isChecked()
+            if self.auto_size_box.isChecked():
+                self.uni_config.auto_size = True
+                logger.debug("Auto size is enabled")
+            else:
+                self.uni_config.auto_size = False
+                logger.debug("Auto size is disabled")
+
             # Validate input parameters
             logger.debug("Validating input parameters")
             try:

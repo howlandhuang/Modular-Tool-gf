@@ -34,7 +34,7 @@ class ModularTools(QtWidgets.QWidget):
         """Initialize the Modular Tools widget and load UI."""
         super().__init__()
         logger.info("Initializing Modular Tools widget")
-        self.version = "3.7.8"
+        self.version = "3.7.9"
         self.setup_ui()
         self.initialize_tabs()
         logger.info("Modular Tools initialization complete")

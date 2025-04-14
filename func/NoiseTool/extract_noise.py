@@ -155,7 +155,6 @@ class DataProcessor:
                           if f.startswith('Die') and
                           os.path.isdir(os.path.join(wafer_path, f))]
         self.total_dies = len(self.die_folders)
-        logger.debug(f"Found {self.total_dies} die folders")
 
         # Get device list from first die
         first_die_path = os.path.join(wafer_path, self.die_folders[0])
@@ -164,7 +163,14 @@ class DataProcessor:
                         '.noi' in f and 'temp' not in f and
                         os.path.isfile(os.path.join(first_die_path, f))]
         self.total_devices = len(self.device_list)
-        logger.debug(f"Found {self.total_devices} devices to process")
+        if self.total_dies > 0 and self.total_devices > 0:
+            logger.info(f"Found {self.total_dies} die folders and {self.total_devices} devices to process")
+            return True
+        else:
+            logger.warning(f"No die folders or devices found in the {wafer_path}")
+            logger.debug(f"Die folders: {self.die_folders}")
+            logger.debug(f"Device list: {self.device_list}")
+            return False
 
     def update_device_list(self, wafer_path: str):
         """
@@ -872,8 +878,10 @@ class DataProcessor:
         logger.info("Starting parallel processing of all devices")
         try:
             self.reset_parameters() # clear any previous infomation
-            self.config.base_path = wafer_path
-            self.scan_structure(wafer_path) # wafer_path = D:\PythonProject\test_data\multiwafer\7ABC12345_W07
+            self.config.base_path = wafer_path # wafer_path = D:\PythonProject\test_data\multiwafer\7ABC12345_W07
+            # check if the wafer path is valid
+            if not self.scan_structure(wafer_path):
+                return
             self.update_device_list(wafer_path)
 
             # Process devices in parallel

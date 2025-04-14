@@ -468,8 +468,8 @@ def get_user_input(title: str, prompt: str, validator: Callable[[str], Any]) -> 
                 return None
 
             try:
+                logger.info(f"User provided {title}: {value}")
                 validated_value = validate_input(value, validator)
-                logger.info(f"User provided valid {title}: {validated_value}")
                 return validated_value
 
             except ValidationError as e:
